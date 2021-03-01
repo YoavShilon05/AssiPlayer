@@ -12,7 +12,7 @@ using DSharpPlus.VoiceNext;
 
 namespace AssiSharpPlayer
 {
-    class Bot
+    public class Bot
     {
         public DiscordClient Client { get; private set; }
         public CommandsNextExtension Commands { get; private set; }

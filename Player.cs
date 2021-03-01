@@ -31,7 +31,7 @@ namespace AssiSharpPlayer
         public Queue<TrackRecord> songQueue = new();
         public List<TrackRecord> history = new();
         private VoiceNextConnection voiceConnection;
-        private const int queue_length = 3;
+        private const int QueueLength = 3;
 
         public bool terminate = false;
         public bool skip = false;
@@ -85,12 +85,12 @@ namespace AssiSharpPlayer
             Thread[] downloaders = new Thread[tracks!.Count];
             await AddTrack(await tracks[0].GetFull());
             
-            if (!running) Main();
+            if (!running) await Main();
             
             for (int i = 1; i <= tracks.Count; i++)
             {
-                var locali = i;
-                downloaders[i] = new Thread(async () => await AddTrack(await tracks[locali].GetFull()));
+                var j = i;
+                downloaders[i] = new Thread(async () => await AddTrack(await tracks[j].GetFull()));
                 downloaders[i].Start();
                 await Task.Delay(500);
             }
@@ -99,12 +99,10 @@ namespace AssiSharpPlayer
         public void StartPlayingRadio()
         {
             playingRadio = true;
-            
-            List<Thread> downloaders = new();
-            for (int i = 0; i < queue_length- 1; i++)
+
+            for (int i = 0; i < QueueLength- 1; i++)
             {
                 Thread th = new(async () => await Download(await Radio(), radioQueue));
-                downloaders.Add(th);
                 th.Start();
             }
         }
@@ -115,7 +113,7 @@ namespace AssiSharpPlayer
 
             while (true)
             {
-                Thread? downloader = null;
+                Thread downloader = null;
                 if (songQueue.Count == 0 && playingRadio)
                 {
                     FullTrack nextSong = await Radio();
@@ -123,7 +121,6 @@ namespace AssiSharpPlayer
                     if (radioQueue.Count == 0) await Download(nextSong, radioQueue);
                     else downloader.Start();
                 }
-
 
                 TrackRecord song;
                 if (songQueue.Count > 0)
@@ -166,7 +163,7 @@ namespace AssiSharpPlayer
             if (!File.Exists(file))
                 throw new FileNotFoundException("File was not found.");
 
-            await voiceConnection.SendSpeakingAsync(true); // send a speaking indicator
+            await voiceConnection.SendSpeakingAsync(); // send a speaking indicator
 
             var psi = new ProcessStartInfo
             {
@@ -176,13 +173,12 @@ namespace AssiSharpPlayer
                 UseShellExecute = false
             };
             var ffmpeg = Process.Start(psi);
-            var ffout = ffmpeg.StandardOutput.BaseStream;
+            var ffout = ffmpeg!.StandardOutput.BaseStream;
 
             var buff = new byte[3840];
-            var br = 0;
-            while ((br = ffout.Read(buff, 0, buff.Length)) > 0)
+            int br;
+            while ((br = await ffout.ReadAsync(buff.AsMemory(0, buff.Length))) > 0)
             {
-                
                 if (skip || terminate) break;
                 
                 if (br < buff.Length) // not a full sample, mute the rest
@@ -195,18 +191,5 @@ namespace AssiSharpPlayer
             await voiceConnection.SendSpeakingAsync(false); // we're not speaking anymore
             await voiceConnection.WaitForPlaybackFinishAsync();
         }
-        
-        /*
-        self.songqueue : Queue[MusicFunctions.SongInfo] = Queue()
-        self.history = set()
-        self.voice_client = voice_client
-            self.voice_channel = voice_channel
-            self.skip = False
-            self.terminate = False
-            self.playing_song : MusicFunctions.SongInfo = None
-            self.text_channel = text_channel
-
-            self.queueLength = 3 #num of songs to download mid-queue
-        */
     }
 }

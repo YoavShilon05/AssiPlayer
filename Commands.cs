@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using System.Text;
 using DSharpPlus.CommandsNext;
@@ -13,6 +14,7 @@ using Swan;
 
 namespace AssiSharpPlayer
 {
+    [SuppressMessage("ReSharper", "UnusedMember.Global")]
     public class MainCommands : BaseCommandModule
     {
         [Command("test")]
@@ -30,9 +32,9 @@ namespace AssiSharpPlayer
         }
 
         [Command("track")]
-        public async Task Track(CommandContext ctx, params string[] track_name)
+        public async Task Track(CommandContext ctx, params string[] trackName)
         {
-            string search = " ".Join(track_name);
+            string search = " ".Join(trackName);
             var track =
                 await SpotifyManager.SearchSong(search);
             
@@ -43,9 +45,9 @@ namespace AssiSharpPlayer
         }
 
         [Command("album")]
-        public async Task Album(CommandContext ctx, params string[] album_name)
+        public async Task Album(CommandContext ctx, params string[] albumName)
         {
-            string search = " ".Join(album_name);
+            string search = " ".Join(albumName);
             var album = await SpotifyManager.SearchAlbum(search);
             
             Player player = Program.players.ContainsKey(ctx.Guild.Id) ? Program.players[ctx.Guild.Id] : new(ctx.Member.VoiceState.Channel);
@@ -65,9 +67,9 @@ namespace AssiSharpPlayer
         }
         
         [Command("kill")]
-        public async Task Kill(CommandContext ctx)
+        public static Task Kill(CommandContext ctx)
         {
-            
+            return Task.CompletedTask;
         }
         
         [Command("connect")]
@@ -85,13 +87,13 @@ namespace AssiSharpPlayer
                 var code = await Program.Bot.Interactivity.WaitForMessageAsync(m =>
                     m.Author.Id == ctx.Member.Id && m.Channel.Id == ctx.Channel.Id);
 
-                var client = await manager.CreateClient(code.Result.Content, "https://www.google.com/", ctx.Member.Id);
+                await manager.CreateClient(code.Result.Content, "https://www.google.com/", ctx.Member.Id);
                 await ctx.Channel.SendMessageAsync("thank you");
             }
         }
         
         [Command("disconnect")]
-        public async Task Disconnect(CommandContext ctx)
+        public static async Task Disconnect(CommandContext ctx)
         {
             var creds = SpotifyManager.DeserializeCreds();
             creds.Remove(ctx.Member.Id);
@@ -99,7 +101,7 @@ namespace AssiSharpPlayer
         }
         
         [Command("test_connection")]
-        public async Task TestConnection(CommandContext ctx)
+        public static async Task TestConnection(CommandContext ctx)
         {
             var client = await SpotifyManager.GetClient(ctx.Member.Id);
             var tracks = await client.Personalization.GetTopTracks(new(){Limit=25, TimeRangeParam = PersonalizationTopRequest.TimeRange.ShortTerm});
@@ -107,7 +109,7 @@ namespace AssiSharpPlayer
         }
         
         [Command("skip")]
-        public async Task Skip(CommandContext ctx)
+        public static async Task Skip(CommandContext ctx)
         {
             if (Program.players.ContainsKey(ctx.Guild.Id))
                 Program.players[ctx.Guild.Id].skip = true;
@@ -116,9 +118,9 @@ namespace AssiSharpPlayer
         }
         
         [Command("queue")]
-        public async Task Queue(CommandContext ctx)
+        public static async Task Queue(CommandContext ctx)
         {
-            string PrintQueue(Queue<TrackRecord> queue)
+            static string PrintQueue(IEnumerable<TrackRecord> queue)
             {
                 string result = "```";
                 foreach (var track in queue)
@@ -140,11 +142,12 @@ namespace AssiSharpPlayer
         }
     }
 
-    static class Events
+    public static class Events
     {
-        public static async Task Ready(object sender, ReadyEventArgs e)
+        public static Task Ready(object sender, ReadyEventArgs e)
         {
             Console.WriteLine("bot is ready");
+            return Task.CompletedTask;
         }
     }
 }

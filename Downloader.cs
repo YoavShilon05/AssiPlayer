@@ -2,8 +2,6 @@
 using System.Threading.Tasks;
 using FFMpegCore;
 using VideoLibrary;
-using YoutubeSearchApi.Net;
-using System;
 using System.Diagnostics;
 using SpotifyAPI.Web;
 
@@ -52,18 +50,17 @@ namespace AssiSharpPlayer
     
     public static class Downloader
     {
-        private static YoutubeClient youtubeSearch = new(new());
         private static YouTube youtubeDownload = YouTube.Default;
 
         private static string ModifyFileName(string name)
         {
-            string newname = "";
-            
+            string newName = "";
+
             foreach (char c in name)
                 if (char.IsDigit(c) || char.IsLetter(c) || char.IsWhiteSpace(c) || c == '-' || c == '_' || c == '.')
-                    newname += c;
-            
-            return newname;
+                    newName += c;
+
+            return newName;
         }
         
         public static async Task<TrackRecord> DownloadVideo(string url, FullTrack track)

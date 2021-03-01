@@ -12,11 +12,9 @@
       <PackageReference Include="DSharpPlus.Lavalink" Version="4.0.0-rc2" />
       <PackageReference Include="DSharpPlus.VoiceNext" Version="4.0.0-rc2" />
       <PackageReference Include="FFMpegCore" Version="3.4.0" />
-      <PackageReference Include="MediaToolkit" Version="1.1.0.1" />
       <PackageReference Include="SpotifyAPI.Web" Version="6.0.0" />
       <PackageReference Include="SpotifyAPI.Web.Auth" Version="6.0.0" />
       <PackageReference Include="VideoLibrary" Version="3.1.0" />
-      <PackageReference Include="YoutubeSearchApi.Net" Version="2020.10.26" />
     </ItemGroup>
 
 </Project>

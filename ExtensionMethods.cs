@@ -6,17 +6,18 @@ using SpotifyAPI.Web;
 
 namespace AssiSharpPlayer
 {
-    public static class ExtentionMethods
+    public static class ExtensionMethods
     {
         public static string Join(this string slicer, IEnumerable<string> arr)
         {
             string result = "";
             var i = 0;
-            foreach (var s in arr)
+            var enumerable = arr as string[] ?? arr.ToArray();
+            foreach (var s in enumerable)
             {
                 i++;
                 result += s;
-                if (i < arr.Count())
+                if (i < enumerable.Length)
                      result += slicer;
             }
 

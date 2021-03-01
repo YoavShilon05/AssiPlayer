@@ -1,0 +1,22 @@
+﻿{
+  "329960504376426496":
+  {
+    "AccessToken": "BQC3YY_UClf260WFvSh-0gmDN0bMkAJjZDUL7GoC6tnNRxhzMBFXXXldOxZYQAgHShrctLnyHij3TS46JKbZqHp2JeKTlDiwY-j8vejk8jInu4cHA0F6G8T8gCtu2qFUkypFk5plzr9KD64A_98BUsIFcEXS0MbDKESXGxxtTt6-OcTdgJCppSbUIHjjSNrRVyntEgqekQ",
+    "TokenType": "Bearer",
+    "ExpiresIn": 3600,
+    "Scope": "user-library-read user-follow-read user-read-currently-playing user-read-recently-played user-top-read user-read-private",
+    "RefreshToken": "AQALfU86kV35YPlfo0u0ggAn_3mZW-IhutEWEcCwC4dXilbyQU6-th4dUWT465j0K2CXEgRq_WbYy3ZeWNbKwOK83BlLLXD5LHM_3GJCYk2kg0xoCf0cLLkJEThVmoKWgYs",
+    "CreatedAt": "2021-03-01T18:09:27",
+    "IsExpired": false
+  },
+  "417610386871812098":
+  {
+    "AccessToken": "BQC3kAiOxykcG4ulb0XpjMdfQz6pSBMTioTFpONkXQEHKOZuUw_oniKLFDcuM2_8ff31tlQx-y2I8k_y8kVrGsasOuk8HZhARa3kFGUpwpdwfKwN-Tbn_52GtcespO90F5TZUxsBFo51pdjZf4xzLbGjNCZAmWy8dtF0of9_pi-JjBB8atvhCA",
+    "TokenType": "Bearer",
+    "ExpiresIn": 3600,
+    "Scope": "user-library-read user-follow-read user-read-currently-playing user-read-recently-played user-top-read user-read-private",
+    "RefreshToken": "AQCAN0rXBCB0npl3umI0q8pyIlLKiyccNeP2YmtYU2QJdT7iiTyNCfFsrNq7Wj15xADDzs6c4UMe51Jin8rB02ZxUYpw2tO4Asm122Dv3-lmrwzuuPoJB_sQ05g7u0-p6kQ",
+    "CreatedAt": "2021-03-01T18:09:58",
+    "IsExpired": false
+  }
+}

@@ -61,16 +61,19 @@ namespace AssiSharpPlayer
         private static async Task<SpotifyClient> ClientFromTokenResponse(
             PKCETokenResponse tokenResponse, ulong discordID, bool save = false)
         {
-            var newResponse = await new OAuthClient().RequestToken(
-                new PKCETokenRefreshRequest(ClientID, tokenResponse.RefreshToken)
-            );
+            PKCETokenResponse response = tokenResponse;
+            if (tokenResponse.IsExpired)
+            {
+                response = await new OAuthClient().RequestToken(
+                    new PKCETokenRefreshRequest(ClientID, tokenResponse.RefreshToken)
+                );
 
-            // var auth = new PKCEAuthenticator(ClientID, tokenResponse);
-            // var config = SpotifyClientConfig.CreateDefault().WithAuthenticator(auth);
+                UpdateRefreshToken(response.RefreshToken, discordID);
+            }
 
             if (save) SaveTokenResponse(tokenResponse, discordID);
 
-            return new SpotifyClient(newResponse.AccessToken);
+            return new SpotifyClient(response.AccessToken);
         }
 
         public async Task<SpotifyClient> CreateClient(string code, string url, ulong discordID)
@@ -92,6 +95,13 @@ namespace AssiSharpPlayer
         {
             var oldJson = DeserializeCreds();
             oldJson.Add(discordID, tokenResponse);
+            File.WriteAllText("Connections.json", oldJson.ToJson());
+        }
+
+        public static void UpdateRefreshToken(string refreshToken, ulong discordID)
+        {
+            var oldJson = DeserializeCreds();
+            oldJson[discordID].RefreshToken = refreshToken;
             File.WriteAllText("Connections.json", oldJson.ToJson());
         }
 

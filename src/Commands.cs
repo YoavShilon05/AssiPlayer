@@ -15,6 +15,7 @@ using Swan;
 namespace AssiSharpPlayer
 {
     [SuppressMessage("ReSharper", "UnusedMember.Global")]
+    [SuppressMessage("ReSharper", "CA1822")]
     public class MainCommands : BaseCommandModule
     {
         [Command("test")]
@@ -67,7 +68,7 @@ namespace AssiSharpPlayer
         }
         
         [Command("kill")]
-        public static Task Kill(CommandContext ctx)
+        public Task Kill(CommandContext ctx)
         {
             return Task.CompletedTask;
         }
@@ -93,7 +94,7 @@ namespace AssiSharpPlayer
         }
         
         [Command("disconnect")]
-        public static async Task Disconnect(CommandContext ctx)
+        public async Task Disconnect(CommandContext ctx)
         {
             var creds = SpotifyManager.DeserializeCreds();
             creds.Remove(ctx.Member.Id);
@@ -101,7 +102,7 @@ namespace AssiSharpPlayer
         }
         
         [Command("test_connection")]
-        public static async Task TestConnection(CommandContext ctx)
+        public async Task TestConnection(CommandContext ctx)
         {
             var client = await SpotifyManager.GetClient(ctx.Member.Id);
             var tracks = await client.Personalization.GetTopTracks(new(){Limit=25, TimeRangeParam = PersonalizationTopRequest.TimeRange.ShortTerm});
@@ -109,7 +110,7 @@ namespace AssiSharpPlayer
         }
         
         [Command("skip")]
-        public static async Task Skip(CommandContext ctx)
+        public async Task Skip(CommandContext ctx)
         {
             if (Program.players.ContainsKey(ctx.Guild.Id))
                 Program.players[ctx.Guild.Id].skip = true;
@@ -118,7 +119,7 @@ namespace AssiSharpPlayer
         }
         
         [Command("queue")]
-        public static async Task Queue(CommandContext ctx)
+        public async Task Queue(CommandContext ctx)
         {
             static string PrintQueue(IEnumerable<TrackRecord> queue)
             {

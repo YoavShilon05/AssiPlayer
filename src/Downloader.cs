@@ -22,10 +22,11 @@ namespace AssiSharpPlayer
             Track = track;
             FullName = vid.FullName;
             Path = path;
-            Length = vid.Info.LengthSeconds.Value;
+            Length = vid.Info.LengthSeconds!.Value;
             Channel = vid.Info.Author;
             Downloaded = downloaded;
         }
+
         public TrackRecord(FullTrack track, string fullName, string path, long length, string channel, bool downloaded=true)
         {
             Track = track;

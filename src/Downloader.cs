@@ -16,24 +16,30 @@ namespace AssiSharpPlayer
         public long Length { get; private set; }
         public string Channel { get; private set; }
         public bool Downloaded { get; private set; }
+        public string Thumbnail { get; private set; }
+        public string Uri { get; private set; }
 
         public TrackRecord(YouTubeVideo vid, FullTrack track, string path, bool downloaded=true)
         {
             Track = track;
             FullName = vid.FullName;
             Path = path;
+            Thumbnail = null;//vid.Thumbnail;
             Length = vid.Info.LengthSeconds!.Value;
             Channel = vid.Info.Author;
             Downloaded = downloaded;
+            Uri = vid.Uri;
         }
 
-        public TrackRecord(FullTrack track, string fullName, string path, long length, string channel, bool downloaded=true)
+        public TrackRecord(FullTrack track, string fullName, string path, long length, string channel, string thumbnail, string uri, bool downloaded=true)
         {
             Track = track;
             FullName = fullName;
             Path = path;
             Length = length;
             Channel = channel;
+            Thumbnail = thumbnail;
+            Uri = uri;
             Downloaded = downloaded;
         }
 
@@ -45,6 +51,8 @@ namespace AssiSharpPlayer
             Length = other.Length;
             Channel = other.Channel;
             Downloaded = other.Downloaded;
+            Thumbnail = other.Thumbnail;
+            Uri = other.Uri;
         }
     }
     
@@ -101,7 +109,7 @@ namespace AssiSharpPlayer
             string output = record.Path.Replace(".mp4", ".mp3");
             await FFMpegArguments.FromFileInput(record.Path).OutputToFile(output).ProcessAsynchronously();
             File.Delete(record.Path);
-            return new(record.Track, record.FullName, output, record.Length, record.Channel);
+            return new(record.Track, record.FullName, output, record.Length, record.Channel, record.Thumbnail, record.Uri);
         }
 
         public static async Task<TrackRecord> DownloadAudio(string url, FullTrack track) =>

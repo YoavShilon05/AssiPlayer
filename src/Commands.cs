@@ -29,7 +29,7 @@ namespace AssiSharpPlayer
         {
             Player player = Program.players.ContainsKey(ctx.Guild.Id) ? Program.players[ctx.Guild.Id] : new(ctx.Member.VoiceState.Channel);
             player.StartPlayingRadio();
-            if (!player.running) await player.Main();
+            if (!player.running) await player.Main(ctx.Channel);
         }
 
         [Command("track")]
@@ -41,7 +41,7 @@ namespace AssiSharpPlayer
             
             Player player = Program.players.ContainsKey(ctx.Guild.Id) ? Program.players[ctx.Guild.Id] : new(ctx.Member.VoiceState.Channel);
             await player.AddTrack(track);
-            if (!player.running) await player.Main();
+            if (!player.running) await player.Main(ctx.Channel);
 
         }
 
@@ -52,7 +52,7 @@ namespace AssiSharpPlayer
             var album = await SpotifyManager.SearchAlbum(search);
             
             Player player = Program.players.ContainsKey(ctx.Guild.Id) ? Program.players[ctx.Guild.Id] : new(ctx.Member.VoiceState.Channel);
-            await player.PlayAlbum(album);
+            await player.PlayAlbum(album, ctx.Channel);
         }
         
         [Command("terminate")]
@@ -62,6 +62,7 @@ namespace AssiSharpPlayer
             {
                 Program.players[ctx.Guild.Id].terminate = true;
                 Program.players.Remove(ctx.Guild.Id);
+                await ctx.RespondAsync("bot has terminated!");
             }
             else
                 await ctx.RespondAsync("bot is not playing on your server :(");
@@ -99,6 +100,7 @@ namespace AssiSharpPlayer
             var creds = SpotifyManager.DeserializeCreds();
             creds.Remove(ctx.Member.Id);
             await File.WriteAllTextAsync("Connections.json", creds.ToJson());
+            await ctx.RespondAsync("Disconnected from the database!");
         }
         
         [Command("test_connection")]
@@ -113,7 +115,9 @@ namespace AssiSharpPlayer
         public async Task Skip(CommandContext ctx)
         {
             if (Program.players.ContainsKey(ctx.Guild.Id))
-                Program.players[ctx.Guild.Id].skip = true;
+                if (!Program.players[ctx.Guild.Id].voteskipping)
+                    await Program.players[ctx.Guild.Id].Skip(ctx.Channel);
+                else await ctx.RespondAsync("a vote skip is already going in this server.");
             else
                 await ctx.RespondAsync("bot is not playing on your server :(");
         }

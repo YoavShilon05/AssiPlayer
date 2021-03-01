@@ -3,12 +3,14 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using DSharpPlus.CommandsNext;
 using System.Reflection;
 using System.Runtime.Intrinsics.Arm;
 using System.Threading;
 using DSharpPlus.Entities;
+using DSharpPlus.EventArgs;
 using DSharpPlus.VoiceNext;
 using SpotifyAPI.Web;
 using DSharpPlus.VoiceNext.Entities;
@@ -32,12 +34,15 @@ namespace AssiSharpPlayer
         public List<TrackRecord> history = new();
         private VoiceNextConnection voiceConnection;
         private const int QueueLength = 3;
+        private const float VoteSkipsPrecent = 0.33333333f;
 
         public bool terminate = false;
-        public bool skip = false;
+        private bool skip = false;
+        public bool voteskipping = false;
 
         public bool running = false;
         private bool playingRadio = false;
+
         
         public Player(DiscordChannel vc)
         {
@@ -49,10 +54,52 @@ namespace AssiSharpPlayer
         {
             var users = voiceConnection.TargetChannel.Users;
             foreach (var u in users)
-                if (!u.VoiceState.IsSelfDeafened)
+                if (!u.VoiceState.IsSelfDeafened && !u.IsBot)
                     yield return u;
         }
 
+        public async Task Skip(DiscordChannel channel)
+        {
+            voteskipping = true;
+            var msg = await channel.SendMessageAsync("all in favor of skipping vote");
+            await msg.CreateReactionAsync(DiscordEmoji.FromName(Program.Bot.Client, ":white_check_mark:"));
+
+            bool SkipVote(MessageReactionAddEventArgs m)
+            {
+                var reactions = m.Message.Reactions;
+                foreach (var r in reactions)
+                    if (r.Emoji.GetDiscordName() == ":white_check_mark:") 
+                        return (MathF.Ceiling(r.Count / (float)GetMembersListening().Count()) >= VoteSkipsPrecent);
+                throw new Exception("Could not find reaction \":white_check_mark:\" in message reactions");
+            }
+
+            var result = await Program.Bot.Interactivity.WaitForReactionAsync(SkipVote, new TimeSpan(0, 1, 0));
+            voteskipping = false;
+            if (!result.TimedOut)
+            {
+                skip = true;
+                await channel.SendMessageAsync("Skipping...");
+            }
+            else await channel.SendMessageAsync("Vote skip timeout");
+        }
+
+        private async Task SendTrackEmbed(TrackRecord track, DiscordChannel channel)
+        {
+            var author = new DiscordEmbedBuilder.EmbedAuthor();
+            author.Name = track.Track.Artists[0].Name;
+            author.Url = track.Track.Artists[0].Href;
+            DiscordEmbedBuilder embed = new()
+            {
+                Title = track.FullName.Replace(".mp4", "").Replace(".mp3", ""),
+                ImageUrl = track.Track.Album.Images[0].Url,
+                Author = author
+            };
+            embed.AddField($"Spotify link", $"[Spotify Url]({track.Track.ExternalUrls["spotify"]})", true);
+            embed.AddField($"Youtube link", $"[Youtube Url]({track.Uri})", true);
+            embed.AddField("Duration", $"{track.Length / 60} : {track.Length % 60}");
+
+            await channel.SendMessageAsync(embed);
+        }
         
         private async Task<FullTrack> Radio() =>
             await RadioSongGenerator.RandomFavorite(GetMembersListening(), history, radioQueue);
@@ -62,7 +109,7 @@ namespace AssiSharpPlayer
             TrackRecord hollowRecord = null;
             if (ordered)
             {
-                hollowRecord = new TrackRecord(null, null, null, 0, null, false);
+                hollowRecord = new TrackRecord(null, null, null, 0, null,null, null, false);
                 queue.Enqueue(hollowRecord);
             }
 
@@ -79,13 +126,13 @@ namespace AssiSharpPlayer
             await Download(track, songQueue, true);
         }
         
-        public async Task PlayAlbum(FullAlbum album)
+        public async Task PlayAlbum(FullAlbum album, DiscordChannel channel)
         {
             List<SimpleTrack> tracks = album.Tracks.Items;
             Thread[] downloaders = new Thread[tracks!.Count];
             await AddTrack(await tracks[0].GetFull());
             
-            if (!running) await Main();
+            if (!running) await Main(channel);
             
             for (int i = 1; i <= tracks.Count; i++)
             {
@@ -107,8 +154,10 @@ namespace AssiSharpPlayer
             }
         }
         
-        public async Task Main()
+        public async Task Main(DiscordChannel channel)
         {
+            await channel.SendMessageAsync("Just a minute, we're downloading the songs!");
+            
             running = true;
 
             while (true)
@@ -134,7 +183,8 @@ namespace AssiSharpPlayer
                     song = radioQueue.Dequeue();
                 }
                 else break;
-                
+
+                await SendTrackEmbed(song, channel);
                 await Play(song.Path);
                 //delete last song
                 if (history.Count > 0) File.Delete(history[^1].Path);

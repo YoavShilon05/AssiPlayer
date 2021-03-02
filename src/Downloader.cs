@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Threading.Tasks;
 using FFMpegCore;
 using VideoLibrary;
@@ -60,6 +61,7 @@ namespace AssiSharpPlayer
     public static class Downloader
     {
         private static YouTube youtubeDownload = YouTube.Default;
+        private static bool running = false;
 
         private static string ModifyFileName(string name)
         {
@@ -106,9 +108,12 @@ namespace AssiSharpPlayer
 
         private static async Task<TrackRecord> ConvertToAudio(TrackRecord record)
         {
+            while (running) await Task.Delay(1); // i want to kill myself very very badly.
+            running = true;
             string output = record.Path.Replace(".mp4", ".mp3");
             await FFMpegArguments.FromFileInput(record.Path).OutputToFile(output).ProcessAsynchronously();
             File.Delete(record.Path);
+            running = false;
             return new(record.Track, record.FullName, output, record.Length, record.Channel, record.Thumbnail, record.Uri);
         }
 

@@ -12,6 +12,7 @@ namespace AssiSharpPlayer
         public static async Task<FullTrack> RandomFavorite(IEnumerable<DiscordMember> membersListening,
                                                            List<TrackRecord> history, Queue<TrackRecord> queue)
         {
+            //TODO: don't throw if there are no connections
             IEnumerable<SpotifyClient> clients =
                 membersListening.Select(m => SpotifyManager.GetClient(m.Id).GetAwaiter().GetResult());
 

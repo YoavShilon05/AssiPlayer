@@ -26,7 +26,7 @@ namespace AssiSharpPlayer
         Album,
         Playlist
     }
-    
+
     public class Player
     {
         public Queue<TrackRecord> radioQueue = new();
@@ -43,13 +43,13 @@ namespace AssiSharpPlayer
         public bool running = false;
         private bool playingRadio = false;
 
-        
+
         public Player(DiscordChannel vc)
         {
             Program.players.Add(vc.Guild.Id, this);
             voiceConnection = vc.ConnectAsync().GetAwaiter().GetResult();
         }
-        
+
         private IEnumerable<DiscordMember> GetMembersListening()
         {
             var users = voiceConnection.TargetChannel.Users;
@@ -68,8 +68,11 @@ namespace AssiSharpPlayer
             {
                 var reactions = m.Message.Reactions;
                 foreach (var r in reactions)
-                    if (r.Emoji.GetDiscordName() == ":white_check_mark:") 
-                        return (MathF.Ceiling(r.Count / (float)GetMembersListening().Count()) >= VoteSkipsPrecent);
+                {
+                    if (r.Emoji.GetDiscordName() == ":white_check_mark:")
+                        return MathF.Ceiling((r.Count - 1) / (float)GetMembersListening().Count()) >= VoteSkipsPrecent;
+                }
+
                 throw new Exception("Could not find reaction \":white_check_mark:\" in message reactions");
             }
 
@@ -83,33 +86,34 @@ namespace AssiSharpPlayer
             else await channel.SendMessageAsync("Vote skip timeout");
         }
 
-        private async Task SendTrackEmbed(TrackRecord track, DiscordChannel channel)
+        private static async Task SendTrackEmbed(TrackRecord track, DiscordChannel channel)
         {
-            var author = new DiscordEmbedBuilder.EmbedAuthor();
-            author.Name = track.Track.Artists[0].Name;
-            author.Url = track.Track.Artists[0].Href;
+            var author = new DiscordEmbedBuilder.EmbedAuthor
+            {
+                Name = track.Track.Artists[0].Name,
+                Url = track.Track.Artists[0].ExternalUrls["spotify"]
+            };
             DiscordEmbedBuilder embed = new()
             {
                 Title = track.FullName.Replace(".mp4", "").Replace(".mp3", ""),
                 ImageUrl = track.Track.Album.Images[0].Url,
                 Author = author
             };
-            embed.AddField($"Spotify link", $"[Spotify Url]({track.Track.ExternalUrls["spotify"]})", true);
-            embed.AddField($"Youtube link", $"[Youtube Url]({track.Uri})", true);
-            embed.AddField("Duration", $"{track.Length / 60} : {track.Length % 60}");
+            embed.AddField("Links", $"[Spotify]({track.Track.ExternalUrls["spotify"]}) [Youtube]({track.Uri})", true);
+            embed.AddField("Duration", new TimeSpan(0, 0, (int)track.Length).ToString());
 
             await channel.SendMessageAsync(embed);
         }
-        
+
         private async Task<FullTrack> Radio() =>
             await RadioSongGenerator.RandomFavorite(GetMembersListening(), history, radioQueue);
 
-        private async Task Download(FullTrack track, Queue<TrackRecord> queue, bool ordered=false)
+        private async Task<TrackRecord> Download(FullTrack track, Queue<TrackRecord> queue, bool ordered = false)
         {
             TrackRecord hollowRecord = null;
             if (ordered)
             {
-                hollowRecord = new TrackRecord(null, null, null, 0, null,null, null, false);
+                hollowRecord = new TrackRecord(null, null, null, 0, null, null, null, false);
                 queue.Enqueue(hollowRecord);
             }
 
@@ -117,27 +121,29 @@ namespace AssiSharpPlayer
             if (ordered)
                 hollowRecord.Set(record);
             else queue.Enqueue(record);
-            
+
             Console.WriteLine($"Downloaded track {track.Name}");
+            return hollowRecord ?? record;
         }
 
-        public async Task AddTrack(FullTrack track)
+        public async Task AddTrack(FullTrack track, DiscordChannel channel)
         {
-            await Download(track, songQueue, true);
+            TrackRecord t = await Download(track, songQueue, true);
+            await SendTrackEmbed(t, channel);
         }
-        
+
         public async Task PlayAlbum(FullAlbum album, DiscordChannel channel)
         {
             List<SimpleTrack> tracks = album.Tracks.Items;
             Thread[] downloaders = new Thread[tracks!.Count];
-            await AddTrack(await tracks[0].GetFull());
-            
+            await AddTrack(await tracks[0].GetFull(), channel);
+
             if (!running) await Main(channel);
-            
+
             for (int i = 1; i <= tracks.Count; i++)
             {
                 var j = i;
-                downloaders[i] = new Thread(async () => await AddTrack(await tracks[j].GetFull()));
+                downloaders[i] = new Thread(async () => await AddTrack(await tracks[j].GetFull(), channel));
                 downloaders[i].Start();
                 await Task.Delay(500);
             }
@@ -147,17 +153,17 @@ namespace AssiSharpPlayer
         {
             playingRadio = true;
 
-            for (int i = 0; i < QueueLength- 1; i++)
+            for (int i = 0; i < QueueLength - 1; i++)
             {
                 Thread th = new(async () => await Download(await Radio(), radioQueue));
                 th.Start();
             }
         }
-        
+
         public async Task Main(DiscordChannel channel)
         {
             await channel.SendMessageAsync("Just a minute, we're downloading the songs!");
-            
+
             running = true;
 
             while (true)
@@ -184,15 +190,14 @@ namespace AssiSharpPlayer
                 }
                 else break;
 
-                await SendTrackEmbed(song, channel);
                 await Play(song.Path);
                 //delete last song
                 if (history.Count > 0) File.Delete(history[^1].Path);
-                
+
                 history.Add(song);
                 skip = false;
-                
-                
+
+
                 if (downloader != null && downloader.IsAlive) downloader.Join();
 
                 if (terminate)
@@ -201,10 +206,10 @@ namespace AssiSharpPlayer
                     break;
                 }
             }
-            
+
             running = false;
         }
-        
+
         private async Task Play(string file)
         {
             if (voiceConnection == null)
@@ -223,21 +228,23 @@ namespace AssiSharpPlayer
                 UseShellExecute = false
             };
             var ffmpeg = Process.Start(psi);
-            var ffout = ffmpeg!.StandardOutput.BaseStream;
+            await using var ffout = ffmpeg!.StandardOutput.BaseStream;
 
             var buff = new byte[3840];
             int br;
             while ((br = await ffout.ReadAsync(buff.AsMemory(0, buff.Length))) > 0)
             {
                 if (skip || terminate) break;
-                
+
                 if (br < buff.Length) // not a full sample, mute the rest
+                {
                     for (var i = br; i < buff.Length; i++)
                         buff[i] = 0;
-                
+                }
+
                 await voiceConnection.GetTransmitSink().WriteAsync(buff);
             }
-            
+
             await voiceConnection.SendSpeakingAsync(false); // we're not speaking anymore
             await voiceConnection.WaitForPlaybackFinishAsync();
         }

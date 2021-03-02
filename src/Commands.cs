@@ -27,7 +27,9 @@ namespace AssiSharpPlayer
         [Command("radio")]
         public async Task Radio(CommandContext ctx)
         {
-            Player player = Program.players.ContainsKey(ctx.Guild.Id) ? Program.players[ctx.Guild.Id] : new(ctx.Member.VoiceState.Channel);
+            Player player = Program.players.ContainsKey(ctx.Guild.Id) ?
+                Program.players[ctx.Guild.Id] :
+                new(ctx.Member.VoiceState.Channel);
             player.StartPlayingRadio();
             if (!player.running) await player.Main(ctx.Channel);
         }
@@ -36,13 +38,13 @@ namespace AssiSharpPlayer
         public async Task Track(CommandContext ctx, params string[] trackName)
         {
             string search = " ".Join(trackName);
-            var track =
-                await SpotifyManager.SearchSong(search);
-            
-            Player player = Program.players.ContainsKey(ctx.Guild.Id) ? Program.players[ctx.Guild.Id] : new(ctx.Member.VoiceState.Channel);
-            await player.AddTrack(track);
-            if (!player.running) await player.Main(ctx.Channel);
+            var track = await SpotifyManager.SearchSong(search);
 
+            Player player = Program.players.ContainsKey(ctx.Guild.Id) ?
+                Program.players[ctx.Guild.Id] :
+                new(ctx.Member.VoiceState.Channel);
+            await player.AddTrack(track, ctx.Channel);
+            if (!player.running) await player.Main(ctx.Channel);
         }
 
         [Command("album")]
@@ -50,11 +52,13 @@ namespace AssiSharpPlayer
         {
             string search = " ".Join(albumName);
             var album = await SpotifyManager.SearchAlbum(search);
-            
-            Player player = Program.players.ContainsKey(ctx.Guild.Id) ? Program.players[ctx.Guild.Id] : new(ctx.Member.VoiceState.Channel);
+
+            Player player = Program.players.ContainsKey(ctx.Guild.Id) ?
+                Program.players[ctx.Guild.Id] :
+                new(ctx.Member.VoiceState.Channel);
             await player.PlayAlbum(album, ctx.Channel);
         }
-        
+
         [Command("terminate")]
         public async Task Terminate(CommandContext ctx)
         {
@@ -67,13 +71,13 @@ namespace AssiSharpPlayer
             else
                 await ctx.RespondAsync("bot is not playing on your server :(");
         }
-        
+
         [Command("kill")]
         public Task Kill(CommandContext ctx)
         {
             return Task.CompletedTask;
         }
-        
+
         [Command("connect")]
         public async Task Connect(CommandContext ctx)
         {
@@ -93,7 +97,7 @@ namespace AssiSharpPlayer
                 await ctx.Channel.SendMessageAsync("thank you");
             }
         }
-        
+
         [Command("disconnect")]
         public async Task Disconnect(CommandContext ctx)
         {
@@ -102,26 +106,30 @@ namespace AssiSharpPlayer
             await File.WriteAllTextAsync("Connections.json", creds.ToJson());
             await ctx.RespondAsync("Disconnected from the database!");
         }
-        
+
         [Command("test_connection")]
         public async Task TestConnection(CommandContext ctx)
         {
             var client = await SpotifyManager.GetClient(ctx.Member.Id);
-            var tracks = await client.Personalization.GetTopTracks(new(){Limit=25, TimeRangeParam = PersonalizationTopRequest.TimeRange.ShortTerm});
+            var tracks = await client.Personalization.GetTopTracks(new()
+                {Limit = 25, TimeRangeParam = PersonalizationTopRequest.TimeRange.ShortTerm});
             await ctx.Channel.SendMessageAsync("\n".Join(tracks.Items!.Select(t => t.Name)));
         }
-        
+
         [Command("skip")]
         public async Task Skip(CommandContext ctx)
         {
             if (Program.players.ContainsKey(ctx.Guild.Id))
+            {
                 if (!Program.players[ctx.Guild.Id].voteskipping)
                     await Program.players[ctx.Guild.Id].Skip(ctx.Channel);
-                else await ctx.RespondAsync("a vote skip is already going in this server.");
+                else
+                    await ctx.RespondAsync("a vote skip is already going in this server.");
+            }
             else
                 await ctx.RespondAsync("bot is not playing on your server :(");
         }
-        
+
         [Command("queue")]
         public async Task Queue(CommandContext ctx)
         {
@@ -132,10 +140,10 @@ namespace AssiSharpPlayer
                 {
                     result += $"{track.FullName} - {track.Channel}\n";
                 }
+
                 return result + "```";
             }
-            
-            
+
             if (Program.players.ContainsKey(ctx.Guild.Id))
             {
                 var player = Program.players[ctx.Guild.Id];

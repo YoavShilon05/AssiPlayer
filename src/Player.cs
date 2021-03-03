@@ -34,7 +34,7 @@ namespace AssiSharpPlayer
         public List<TrackRecord> history = new();
         private VoiceNextConnection voiceConnection;
         private const int RadioQueueLength = 3;
-        private const int DownloaderThreads = 2;
+        private const int DownloaderThreads = 1;
         private const float VoteSkipsPrecent = 0.33333333f;
 
         private int currentDownloader = 0;
@@ -132,6 +132,7 @@ namespace AssiSharpPlayer
             List<SimpleTrack> tracks = album.Tracks.Items;
             foreach (var t in tracks!) 
                 TrackQueue.Enqueue(await t.GetFull());
+            await channel.SendMessageAsync($"Downloading Track {album.Name} - {album.Artists[0].Name}");
         }
 
         public async Task PlayRadio()
@@ -158,7 +159,7 @@ namespace AssiSharpPlayer
         {
             while (!terminate)
             {
-                while (TrackQueue.Count == 0 || currentDownloader == index) await Task.Delay(1000);
+                while (TrackQueue.Count == 0 || currentDownloader != index) await Task.Delay(1000);
                 await Download();
             }
         }

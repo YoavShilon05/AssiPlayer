@@ -30,7 +30,7 @@ namespace AssiSharpPlayer
             Player player = Program.players.ContainsKey(ctx.Guild.Id) ?
                 Program.players[ctx.Guild.Id] :
                 new(ctx.Member.VoiceState.Channel);
-            player.StartPlayingRadio();
+            await player.PlayRadio();
             if (!player.running) await player.Main(ctx.Channel);
         }
 
@@ -56,7 +56,8 @@ namespace AssiSharpPlayer
             Player player = Program.players.ContainsKey(ctx.Guild.Id) ?
                 Program.players[ctx.Guild.Id] :
                 new(ctx.Member.VoiceState.Channel);
-            await player.PlayAlbum(album, ctx.Channel);
+            await player.AddAlbum(album, ctx.Channel);
+            if (!player.running) await player.Main(ctx.Channel);
         }
 
         [Command("terminate")]
@@ -133,22 +134,18 @@ namespace AssiSharpPlayer
         [Command("queue")]
         public async Task Queue(CommandContext ctx)
         {
-            static string PrintQueue(IEnumerable<TrackRecord> queue)
-            {
-                string result = "```";
-                foreach (var track in queue)
-                {
-                    result += $"{track.FullName} - {track.Channel}\n";
-                }
-
-                return result + "```";
-            }
-
             if (Program.players.ContainsKey(ctx.Guild.Id))
             {
                 var player = Program.players[ctx.Guild.Id];
-                if (player.songQueue.Count > 0) await ctx.RespondAsync(PrintQueue(player.songQueue));
-                else await ctx.RespondAsync(PrintQueue(player.radioQueue));
+                
+                string result = "```";
+                foreach (var track in player.GetFullQueue())
+                {
+                    result += $"{track.Name} - {track.Artists[0].Name}\n";
+                }
+
+                await ctx.RespondAsync(result + "```");
+                
             }
             else
                 await ctx.RespondAsync("bot is not playing on your server :(");

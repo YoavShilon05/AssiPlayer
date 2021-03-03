@@ -29,12 +29,15 @@ namespace AssiSharpPlayer
 
     public class Player
     {
-        public Queue<TrackRecord> radioQueue = new();
-        public Queue<TrackRecord> songQueue = new();
+        public Queue<TrackRecord> RecordQueue = new();
+        private Queue<FullTrack> TrackQueue = new();
         public List<TrackRecord> history = new();
         private VoiceNextConnection voiceConnection;
-        private const int QueueLength = 3;
+        private const int RadioQueueLength = 3;
+        private const int DownloaderThreads = 2;
         private const float VoteSkipsPrecent = 0.33333333f;
+
+        private int currentDownloader = 0;
 
         public bool terminate = false;
         private bool skip = false;
@@ -106,90 +109,86 @@ namespace AssiSharpPlayer
         }
 
         private async Task<FullTrack> Radio() =>
-            await RadioSongGenerator.RandomFavorite(GetMembersListening(), history, radioQueue);
+            await RadioSongGenerator.RandomFavorite(GetMembersListening(), history, RecordQueue);
 
-        private async Task<TrackRecord> Download(FullTrack track, Queue<TrackRecord> queue, bool ordered = false)
+        private async Task<TrackRecord> Download()
         {
-            TrackRecord hollowRecord = null;
-            if (ordered)
-            {
-                hollowRecord = new TrackRecord(null, null, null, 0, null, null, null, false);
-                queue.Enqueue(hollowRecord);
-            }
-
+            var track = TrackQueue.Dequeue();
+            currentDownloader = (currentDownloader + 1) % DownloaderThreads;
             TrackRecord record = await Downloader.SearchAudio(track);
-            if (ordered)
-                hollowRecord.Set(record);
-            else queue.Enqueue(record);
-
+            RecordQueue.Enqueue(record);
             Console.WriteLine($"Downloaded track {track.Name}");
-            return hollowRecord ?? record;
+            return record;
         }
 
         public async Task AddTrack(FullTrack track, DiscordChannel channel)
         {
-            TrackRecord t = await Download(track, songQueue, true);
-            await SendTrackEmbed(t, channel);
+            TrackQueue.Enqueue(track);
+            await channel.SendMessageAsync($"Downloading Track {track.Name} - {track.Artists[0].Name}");
         }
 
-        public async Task PlayAlbum(FullAlbum album, DiscordChannel channel)
+        public async Task AddAlbum(FullAlbum album, DiscordChannel channel)
         {
             List<SimpleTrack> tracks = album.Tracks.Items;
-            Thread[] downloaders = new Thread[tracks!.Count];
-            await AddTrack(await tracks[0].GetFull(), channel);
-
-            if (!running) await Main(channel);
-
-            for (int i = 1; i <= tracks.Count; i++)
-            {
-                var j = i;
-                downloaders[i] = new Thread(async () => await AddTrack(await tracks[j].GetFull(), channel));
-                downloaders[i].Start();
-                await Task.Delay(500);
-            }
+            foreach (var t in tracks!) 
+                TrackQueue.Enqueue(await t.GetFull());
         }
 
-        public void StartPlayingRadio()
+        public async Task PlayRadio()
         {
             playingRadio = true;
 
-            for (int i = 0; i < QueueLength - 1; i++)
-            {
-                Thread th = new(async () => await Download(await Radio(), radioQueue));
-                th.Start();
-            }
+            for (int i = 0; i < RadioQueueLength; i++)
+                TrackQueue.Enqueue(await Radio());
         }
 
+        public Queue<FullTrack> GetFullQueue()
+        {
+            Queue<FullTrack> songQueue = new(); 
+            foreach (var v in RecordQueue)
+                songQueue.Enqueue(v.Track);
+                
+            foreach (var t in TrackQueue)
+                songQueue.Enqueue(t);
+
+            return songQueue;
+        }
+
+        private async Task DownloaderThread(int index)
+        {
+            while (!terminate)
+            {
+                while (TrackQueue.Count == 0 || currentDownloader == index) await Task.Delay(1000);
+                await Download();
+            }
+        }
+        
         public async Task Main(DiscordChannel channel)
         {
-            await channel.SendMessageAsync("Just a minute, we're downloading the songs!");
-
+            Thread[] downloaders = new Thread[DownloaderThreads];
+            //start up threads
+            for (int i = 0; i < DownloaderThreads; i++)
+            {
+                var j = i;
+                Thread th = new(async () => await DownloaderThread(j));
+                downloaders[j] = th;
+                th.Start();
+            }
+            
             running = true;
 
             while (true)
             {
-                Thread downloader = null;
-                if (songQueue.Count == 0 && playingRadio)
+                if (GetFullQueue().Count <= RadioQueueLength && playingRadio)
                 {
-                    FullTrack nextSong = await Radio();
-                    downloader = new(async () => await Download(nextSong, radioQueue));
-                    if (radioQueue.Count == 0) await Download(nextSong, radioQueue);
-                    else downloader.Start();
+                    TrackQueue.Enqueue(await Radio());
                 }
 
-                TrackRecord song;
-                if (songQueue.Count > 0)
-                {
-                    while (!songQueue.Peek().Downloaded) await Task.Delay(1);
-                    song = songQueue.Dequeue();
-                }
-                else if (playingRadio)
-                {
-                    while (radioQueue.Count == 0) await Task.Delay(1);
-                    song = radioQueue.Dequeue();
-                }
-                else break;
+                while (RecordQueue.Count == 0) await Task.Delay(1000);
 
+                TrackRecord song = RecordQueue.Dequeue();
+
+                await SendTrackEmbed(song, channel);
                 await Play(song.Path);
                 //delete last song
                 if (history.Count > 0) File.Delete(history[^1].Path);
@@ -197,16 +196,14 @@ namespace AssiSharpPlayer
                 history.Add(song);
                 skip = false;
 
-
-                if (downloader != null && downloader.IsAlive) downloader.Join();
-
                 if (terminate)
                 {
                     voiceConnection.Disconnect();
                     break;
                 }
             }
-
+            
+            foreach (var d in downloaders) d.Join();
             running = false;
         }
 

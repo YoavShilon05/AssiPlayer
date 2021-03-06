@@ -109,13 +109,13 @@ namespace AssiSharpPlayer
         }
 
         private async Task<FullTrack> Radio() =>
-            await RadioSongGenerator.RandomFavorite(GetMembersListening(), history, RecordQueue);
+            await RadioPlayer.RandomFavorite(GetMembersListening(), history, RecordQueue);
 
         private async Task<TrackRecord> Download()
         {
             var track = TrackQueue.Dequeue();
             currentDownloader = (currentDownloader + 1) % DownloaderThreads;
-            TrackRecord record = await Downloader.SearchAudio(track);
+            TrackRecord record = await Downloader.SearchAudio(track);   
             RecordQueue.Enqueue(record);
             Console.WriteLine($"Downloaded track {track.Name}");
             return record;

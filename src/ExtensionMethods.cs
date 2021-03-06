@@ -40,6 +40,18 @@ namespace AssiSharpPlayer
         {
             return await SpotifyManager.GlobalClient.Albums.Get(album.Id);
         }
+        
+        public static async Task<FullArtist> GetFull(this SimpleArtist artist)
+        {
+            return await SpotifyManager.GlobalClient.Artists.Get(artist.Id);
+        }
+
+        public static List<T> Extend<T>(this IEnumerable<T> arr, IEnumerable<T> other)
+        {
+            var l = new List<T>(arr);
+            l.AddRange(other);
+            return l;
+        }
 
     }
 }

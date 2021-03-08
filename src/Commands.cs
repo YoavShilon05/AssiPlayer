@@ -9,6 +9,7 @@ using DSharpPlus.Entities;
 using System.Linq;
 using DSharpPlus.EventArgs;
 using System.IO;
+using DSharpPlus;
 using SpotifyAPI.Web;
 using Swan;
 
@@ -96,6 +97,10 @@ namespace AssiSharpPlayer
 
                 await manager.CreateClient(code.Result.Content, "https://www.google.com/", ctx.Member.Id);
                 await ctx.Channel.SendMessageAsync("thank you");
+                
+                if (SpotifyManager.cache.ContainsKey(ctx.User.Id) && ctx.Member.VoiceState.Channel != null)
+                    Program.players[ctx.Member.VoiceState.Channel.Id].SetRadio();
+                
             }
         }
 
@@ -106,6 +111,9 @@ namespace AssiSharpPlayer
             creds.Remove(ctx.Member.Id);
             await File.WriteAllTextAsync("Connections.json", creds.ToJson());
             await ctx.RespondAsync("Disconnected from the database!");
+            
+            if (SpotifyManager.cache.ContainsKey(ctx.User.Id) && ctx.Member.VoiceState.Channel != null)
+                Program.players[ctx.Member.VoiceState.Channel.Id].SetRadio();
         }
 
         [Command("test_connection")]
@@ -157,6 +165,20 @@ namespace AssiSharpPlayer
         public static Task Ready(object sender, ReadyEventArgs e)
         {
             Console.WriteLine("bot is ready");
+            return Task.CompletedTask;
+        }
+
+        public static Task Disconnect(DiscordClient c, SocketCloseEventArgs r)
+        {
+            SpotifyManager.SaveCache();
+            return Task.CompletedTask;
+        }
+
+        public static Task UpdateRadioOnVC(DiscordClient sender, VoiceStateUpdateEventArgs e)
+        {
+            if (SpotifyManager.cache.ContainsKey(e.User.Id))
+                Program.players[e.Channel.Id].SetRadio();
+            
             return Task.CompletedTask;
         }
     }

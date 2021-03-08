@@ -17,7 +17,8 @@ namespace AssiSharpPlayer
         private const string ClientSecret = "e24b4b9bb1ce417ebc0d8694ecb07a43";
 
         public static readonly SpotifyClient GlobalClient;
-
+        public static Dictionary<ulong, PKCETokenResponse> cache { get; private set; }
+        
         static SpotifyManager()
         {
             var config = SpotifyClientConfig.CreateDefault();
@@ -26,6 +27,7 @@ namespace AssiSharpPlayer
             var response = new OAuthClient(config).RequestToken(request).GetAwaiter().GetResult();
 
             GlobalClient = new SpotifyClient(config.WithToken(response.AccessToken));
+            cache = DeserializeCreds();
         }
 
         public SpotifyManager()
@@ -71,11 +73,17 @@ namespace AssiSharpPlayer
                 UpdateRefreshToken(response.RefreshToken, discordID);
             }
 
-            if (save) SaveTokenResponse(tokenResponse, discordID);
-
+            //if (save) SaveTokenResponse(tokenResponse, discordID);
+            if (save) cache[discordID] = tokenResponse;
+            
             return new SpotifyClient(response.AccessToken);
         }
 
+        public static void SaveCache()
+        {
+            File.WriteAllText("Connections.json", cache.ToJson());
+        }
+        
         public async Task<SpotifyClient> CreateClient(string code, string url, ulong discordID)
         {
             if (DeserializeCreds().ContainsKey(discordID))

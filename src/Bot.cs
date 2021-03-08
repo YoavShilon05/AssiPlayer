@@ -52,6 +52,8 @@ namespace AssiSharpPlayer
             
             //register events
             Client.Ready += Events.Ready;
+            Client.SocketClosed += Events.Disconnect;
+            Client.VoiceStateUpdated += Events.UpdateRadioOnVC;
 
             //Extend bot duration Indefinitely.
             await Task.Delay(-1);

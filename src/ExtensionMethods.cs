@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -46,11 +47,16 @@ namespace AssiSharpPlayer
             return await SpotifyManager.GlobalClient.Artists.Get(artist.Id);
         }
 
-        public static List<T> Extend<T>(this IEnumerable<T> arr, IEnumerable<T> other)
+        public static IEnumerable<T> Extend<T>(this IEnumerable<T> arr, IEnumerable<T> other)
         {
             var l = new List<T>(arr);
             l.AddRange(other);
             return l;
+        }
+
+        public static IEnumerable<T> Clean<T>(this IEnumerable<T> arr)
+        {
+            return arr.Where(item => item != null).ToList();
         }
 
     }

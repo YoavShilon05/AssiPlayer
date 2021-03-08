@@ -18,15 +18,6 @@ using DSharpPlus.Lavalink;
 
 namespace AssiSharpPlayer
 {
-    public enum PlayerStates
-    {
-        Idle,
-        Radio,
-        Track,
-        Album,
-        Playlist
-    }
-
     public class Player
     {
         public Queue<TrackRecord> RecordQueue = new();
@@ -46,13 +37,21 @@ namespace AssiSharpPlayer
         public bool running = false;
         private bool playingRadio = false;
 
-
+        private RadioPlayer radio = null;
+        
         public Player(DiscordChannel vc)
         {
             Program.players.Add(vc.Guild.Id, this);
             voiceConnection = vc.ConnectAsync().GetAwaiter().GetResult();
+            SetRadio();
         }
 
+        public void SetRadio()
+        {
+            var local_radio = new RadioPlayer(GetSpotifyMembersListening().Select(u => u.Id).ToList());
+            radio = local_radio;
+        }
+        
         private IEnumerable<DiscordMember> GetMembersListening()
         {
             var users = voiceConnection.TargetChannel.Users;
@@ -61,6 +60,11 @@ namespace AssiSharpPlayer
                     yield return u;
         }
 
+        private IEnumerable<DiscordMember> GetSpotifyMembersListening()
+        {
+            return GetMembersListening().Where(u => SpotifyManager.cache.ContainsKey(u.Id));
+        }
+        
         public async Task Skip(DiscordChannel channel)
         {
             voteskipping = true;
@@ -108,8 +112,12 @@ namespace AssiSharpPlayer
             await channel.SendMessageAsync(embed);
         }
 
-        private async Task<FullTrack> Radio() =>
-            await RadioPlayer.RandomFavorite(GetMembersListening(), history, RecordQueue);
+        private async Task<FullTrack> Radio()
+        {
+            if (radio == null)
+                return await RadioPlayer.RandomFavorite(GetMembersListening(), history, RecordQueue);
+            return radio.BigDic();
+        }
 
         private async Task<TrackRecord> Download()
         {

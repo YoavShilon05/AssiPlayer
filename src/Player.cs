@@ -68,6 +68,13 @@ namespace AssiSharpPlayer
         public async Task Skip(DiscordChannel channel)
         {
             voteskipping = true;
+            if (GetMembersListening().Count() * VoteSkipsPrecent <= 1)
+            {
+                skip = true;
+                await channel.SendMessageAsync("Skipping...");
+                return;
+            }
+
             var msg = await channel.SendMessageAsync("all in favor of skipping vote");
             await msg.CreateReactionAsync(DiscordEmoji.FromName(Program.Bot.Client, ":white_check_mark:"));
 
@@ -77,7 +84,7 @@ namespace AssiSharpPlayer
                 foreach (var r in reactions)
                 {
                     if (r.Emoji.GetDiscordName() == ":white_check_mark:")
-                        return MathF.Ceiling((r.Count - 1) / (float)GetMembersListening().Count()) >= VoteSkipsPrecent;
+                        return MathF.Ceiling((r.Count - 1) / (float) GetMembersListening().Count()) >= VoteSkipsPrecent;
                 }
 
                 throw new Exception("Could not find reaction \":white_check_mark:\" in message reactions");

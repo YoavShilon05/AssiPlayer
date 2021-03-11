@@ -56,8 +56,8 @@ namespace AssiSharpPlayer
             Uri = other.Uri;
         }
     }
-    
-    
+
+
     public static class Downloader
     {
         private static YouTube youtubeDownload = YouTube.Default;
@@ -73,9 +73,10 @@ namespace AssiSharpPlayer
 
             return newName;
         }
-        
+
         public static async Task<TrackRecord> DownloadVideo(string url, FullTrack track)
         {
+            Console.WriteLine($"Downloading {track.Name}");
             YouTubeVideo vid = await youtubeDownload.GetVideoAsync(url);
             string dir = ModifyFileName(vid.FullName);
             await File.WriteAllBytesAsync(dir, await vid.GetBytesAsync());

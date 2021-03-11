@@ -1,8 +1,13 @@
 ﻿# bug-fixes
-- update radio when user deafens/undeafens
+- fix radio :( 🙁 😦 ☹ :-( ;( ;-(
 - cross-player history
 - skipping just randomly decides to not work sometimes
 - fix queueing with tracks
+- if two servers are downloading the same song, the first server to finish playing it will delete the file from existence and the other server won't hear it.
+- delete songs when terminate
+- connection is zombie
+- maybe downloading things doesn't work if the file already exists
+- if downloading song and while downloading queue then queue doesn't work
 
 # code
 - optimize radio
@@ -17,11 +22,14 @@
 - streamline connection
 - how much did you like the song that just played
 - delete the songs not terribly and after termination
+- blacklist
 
 # responsiveness
 - remove items from queue
 - how much time left
 - pause
+- write message if queue is empty
+- if you skip a lot and the bot starts to lag say something about it
 
 # radio algorithms
 - explore - play genres that people in the call don't really listen to
@@ -31,3 +39,4 @@
 # publishing
 - hide tokens in .txt
 - document code
+- name and picture

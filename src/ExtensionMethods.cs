@@ -59,5 +59,14 @@ namespace AssiSharpPlayer
             return arr.Where(item => item != null).ToList();
         }
 
+        public static void Remove<T>(this Queue<T> queue, int index)
+        {
+            var list = new List<T>();
+            for (int i = 0; i < index; i++)
+                list.Add(queue.Dequeue());
+            for (int i = 0; i < index - 1; i++)
+                queue.Enqueue(list[i]);
+        }
+
     }
 }

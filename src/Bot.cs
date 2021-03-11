@@ -18,7 +18,7 @@ namespace AssiSharpPlayer
         public CommandsNextExtension Commands { get; private set; }
         public InteractivityExtension Interactivity { get; private set; }
         public VoiceNextExtension Voice { get; private set; }
-        
+
         public string[] Prefixes { get; private set; }
 
         public Bot(string[] prefixes)
@@ -28,7 +28,6 @@ namespace AssiSharpPlayer
 
         public async Task Run(string token)
         {
-
             var botConfig = new DiscordConfiguration
             {
                 Token = token,
@@ -42,22 +41,32 @@ namespace AssiSharpPlayer
             };
 
             Commands = Client.UseCommandsNext(commandsConfig);
-            Interactivity = Client.UseInteractivity(new InteractivityConfiguration() { Timeout = Timeout.InfiniteTimeSpan });
+            Interactivity = Client.UseInteractivity(new InteractivityConfiguration()
+                {Timeout = Timeout.InfiniteTimeSpan});
             Voice = Client.UseVoiceNext();
-            
+
             await Client.ConnectAsync();
 
             //register commands 
             Commands.RegisterCommands<MainCommands>();
-            
+
             //register events
             Client.Ready += Events.Ready;
             Client.SocketClosed += Events.Disconnect;
             Client.VoiceStateUpdated += Events.UpdateRadioOnVC;
+            Client.ClientErrored += (_, args) =>
+            {
+                Console.WriteLine(args.Exception.Message);
+                return Task.CompletedTask;
+            };
+            Client.SocketErrored += (_, args) =>
+            {
+                Console.WriteLine(args.Exception.Message);
+                return Task.CompletedTask;
+            };
 
             //Extend bot duration Indefinitely.
             await Task.Delay(-1);
-
         }
     }
 }

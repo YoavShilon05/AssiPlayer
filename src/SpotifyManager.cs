@@ -74,7 +74,11 @@ namespace AssiSharpPlayer
             }
 
             //if (save) SaveTokenResponse(tokenResponse, discordID);
-            if (save) Cache[discordID] = tokenResponse;
+            if (save)
+            {
+                Cache[discordID] = tokenResponse;
+                SaveCache();
+            }
             
             return new SpotifyClient(response.AccessToken);
         }
@@ -130,9 +134,8 @@ namespace AssiSharpPlayer
 
         public static async Task<SpotifyClient> GetClient(ulong discordID)
         {
-            var creds = DeserializeCreds();
-            if (creds.ContainsKey(discordID))
-                return await ClientFromTokenResponse(creds[discordID], discordID);
+            if (Cache.ContainsKey(discordID))
+                return await ClientFromTokenResponse(Cache[discordID], discordID);
             return null;
         }
     }

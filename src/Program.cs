@@ -17,6 +17,8 @@ namespace AssiSharpPlayer
         {
             Bot = new(new[] {"s."});
             Bot.Run(File.ReadAllText("Token.txt")).GetAwaiter().GetResult();
+
+            SpotifyManager.SaveCache();
         }
     }
 }

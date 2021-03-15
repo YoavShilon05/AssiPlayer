@@ -16,11 +16,18 @@ namespace AssiSharpPlayer
         private VoiceNextConnection voiceConnection = null;
 
         private QueueManager queue;
+        public bool running;
 
         public Player(DiscordChannel voiceChannel)
         {
             voiceConnection = voiceChannel.ConnectAsync().GetAwaiter().GetResult();
-            queue = new QueueManager(voiceChannel.Users);
+            queue = new QueueManager(GetMembersListening());
+        }
+
+        public async Task PlayRadio()
+        {
+            for (int i = 0; i < QueueManager.RadioQueueAmount; i++)
+                await queue.QueueNextRadio();
         }
 
         private static async Task SendTrackEmbed(TrackRecord track, DiscordChannel textChannel)
@@ -85,6 +92,14 @@ namespace AssiSharpPlayer
 
             await voiceConnection.SendSpeakingAsync(false); // we're not speaking anymore
             await voiceConnection.WaitForPlaybackFinishAsync();
+        }
+
+        public IEnumerable<DiscordMember> GetMembersListening()
+        {
+            var users = voiceConnection.TargetChannel.Users;
+            foreach (var u in users)
+                if (!u.VoiceState.IsSelfDeafened && !u.IsBot)
+                    yield return u;
         }
     }
 }

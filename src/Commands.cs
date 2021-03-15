@@ -39,11 +39,116 @@ namespace AssiSharpPlayer
             Player player = Program.players.ContainsKey(ctx.Guild.Id) ?
                 Program.players[ctx.Guild.Id] :
                 new(ctx.Member.VoiceState.Channel);
-            await player.PlayRadio();
+
             await ctx.RespondAsync("We are downloading yours songs, please wait!");
+            await player.PlayRadio();
             if (!player.running) await player.Update(ctx.Channel);
         }
 
+        [Command("blacklist")]
+        public async Task Blacklist(CommandContext ctx, params string[] search_params)
+        {
+            async Task BlacklistTrack(FullTrack track)
+            {
+                if (Program.blacklists.ContainsKey(ctx.Member.Id))
+                {
+                    if (Program.blacklists[ctx.Member.Id].Contains(track.Id))
+                        await ctx.RespondAsync("already blacklisted this track");
+                    else
+                    {
+                        Program.blacklists[ctx.Member.Id].Add(track.Id);
+                        Program.SerialzieBlacklists();
+                        await ctx.RespondAsync($"blacklisted track {track.Name}");
+                    }
+                    return;
+                }
+                Program.blacklists.Add(ctx.Member.Id, new(){track.Id});
+                Program.SerialzieBlacklists();
+                await ctx.RespondAsync($"blacklisted track {track.Name}");
+            }
+
+            
+            if (search_params.Length == 0)
+            {
+                await Check(ctx, async () =>
+                {
+                    await BlacklistTrack(Program.players[ctx.Guild.Id].currentTrack.Track);
+                });
+            }
+            else
+            {
+                string search = " ".Join(search_params);
+                FullTrack track = (await SpotifyManager.GlobalClient.Search.Item(new(SearchRequest.Types.Track, search))).Tracks.Items![0];
+                await BlacklistTrack(track);
+            }
+        }
+
+        [Command("blacklists")]
+        public async Task ShowBlacklists(CommandContext ctx)
+        {
+            if (Program.blacklists.ContainsKey(ctx.Member.Id))
+            {
+                await ctx.RespondAsync("\n".Join(Program.blacklists[ctx.Member.Id].Select(
+                    t => SpotifyManager.GlobalClient.Tracks.Get(t).GetAwaiter().GetResult().Name)));
+            }
+
+            else await ctx.RespondAsync("You have no blacklists, such a great taste!");
+
+        }
+
+        [Command("remove_from_blacklist")]
+        public async Task RemoveFromBlacklist(CommandContext ctx, params string[] search_params)
+        {
+            async Task RemoveTrackFromBlacklist(FullTrack track)
+            {
+                if (Program.blacklists.ContainsKey(ctx.Member.Id))
+                {
+                    if (Program.blacklists[ctx.Member.Id].Contains(track.Id))
+                    {
+                        Program.blacklists[ctx.Member.Id].Remove(track.Id);
+                        Program.SerialzieBlacklists();
+                        await ctx.RespondAsync("removed track from your blacklist");
+                    }
+                    else
+                    {
+                        await ctx.RespondAsync($"this track is not blacklisted.");
+                    }
+                    return;
+                }
+
+                await ctx.RespondAsync($"you have no blacklists!");
+            }
+
+            
+            if (search_params.Length == 0)
+            {
+                await Check(ctx, async () =>
+                {
+                    await RemoveTrackFromBlacklist(Program.players[ctx.Guild.Id].currentTrack.Track);
+                });
+            }
+            else
+            {
+                string search = " ".Join(search_params);
+                FullTrack track = (await SpotifyManager.GlobalClient.Search.Item(new(SearchRequest.Types.Track, search))).Tracks.Items![0];
+                await RemoveTrackFromBlacklist(track);
+            }
+        }
+
+
+        [Command("clear_blacklist")]
+        public async Task ClearBlacklist(CommandContext ctx)
+        {
+            if (Program.blacklists.ContainsKey(ctx.Member.Id))
+            {
+                Program.blacklists[ctx.Member.Id].Clear();
+                await ctx.RespondAsync("cleared your blacklist.");
+                return;
+            }
+
+            await ctx.RespondAsync($"you have no blacklists!");
+        }
+        
         // [Command("track")]
         // public async Task Track(CommandContext ctx, params string[] trackName)
         // {
@@ -70,16 +175,16 @@ namespace AssiSharpPlayer
         //     if (!player.running) await player.Main(ctx.Channel);
         // }
         //
-        // [Command("terminate")]
-        // public async Task Terminate(CommandContext ctx)
-        // {
-        //     await Check(ctx, async () =>
-        //     {
-        //         Program.players[ctx.Guild.Id].terminate = true;
-        //         Program.players.Remove(ctx.Guild.Id);
-        //         await ctx.RespondAsync("bot has terminated!");
-        //     });
-        // }
+        [Command("terminate")]
+        public async Task Terminate(CommandContext ctx)
+        {
+            await Check(ctx, async () =>
+            {
+                await Program.players[ctx.Guild.Id].Terminate();
+                Program.players.Remove(ctx.Guild.Id);
+                await ctx.RespondAsync("bot has terminated!");
+            });
+        }
         //
         // [Command("kill")]
         // public Task Kill(CommandContext ctx)
@@ -131,17 +236,42 @@ namespace AssiSharpPlayer
             await ctx.Channel.SendMessageAsync("\n".Join(tracks.Items!.Select(t => t.Name)));
         }
 
-        // [Command("skip")]
-        // public async Task Skip(CommandContext ctx)
-        // {
-        //     await Check(ctx, async () =>
-        //     {
-        //         if (!Program.players[ctx.Guild.Id].voteSkipping)
-        //             await Program.players[ctx.Guild.Id].Skip(ctx.Channel);
-        //         else
-        //             await ctx.RespondAsync("a vote skip is already going in this server.");
-        //     });
-        // }
+        [Command("skip")]
+        public async Task Skip(CommandContext ctx)
+        {
+            await Check(ctx, async () =>
+            {
+                if (!Program.players[ctx.Guild.Id].voteskipping)
+                    await Program.players[ctx.Guild.Id].VoteSkip(ctx.Channel);
+                else
+                    await ctx.RespondAsync("a vote skip is already going in this server.");
+            });
+        }
+        
+        [Command("pause")]
+        public async Task Pause(CommandContext ctx)
+        {
+            await Check(ctx, async () =>
+            {
+                if (!Program.players[ctx.Guild.Id].pause)
+                    Program.players[ctx.Guild.Id].pause = true;
+                else
+                    await ctx.RespondAsync("player is already paused on this server.");
+            });
+        }
+        
+        
+        [Command("resume")]
+        public async Task Resume(CommandContext ctx)
+        {
+            await Check(ctx, async () =>
+            {
+                if (Program.players[ctx.Guild.Id].pause)
+                    Program.players[ctx.Guild.Id].pause = false;
+                else
+                    await ctx.RespondAsync("player is already playing on this server.");
+            });
+        }
         //
         // [Command("queue")]
         // public async Task Queue(CommandContext ctx)
@@ -194,7 +324,7 @@ namespace AssiSharpPlayer
         //                 " minutes are left");
         //         }
         //         else
-        //             await ctx.RespondAsync("No song is currently playing on your server! 💥");
+        //             await ctx.RespondAsync("No search is currently playing on your server! 💥");
         //     });
         // }
     }

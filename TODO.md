@@ -1,10 +1,7 @@
 ﻿# bug-fixes
-- fix radio :( 🙁 😦 ☹ :-( ;( ;-(
+- radio tries to play if no members in call are connected
 - cross-player history
-- skipping just randomly decides to not work sometimes
-- fix queueing with tracks
 - if two servers are downloading the same song, the first server to finish playing it will delete the file from existence and the other server won't hear it.
-- delete songs when terminate
 - connection is zombie
 - maybe downloading things doesn't work if the file already exists
 - if downloading song and while downloading queue then queue doesn't work
@@ -12,7 +9,6 @@
 # code
 - optimize radio
 - refactor BigDic
-- refactor entire structure
 
 # features
 - play a playlist (and shuffle it)
@@ -21,8 +17,8 @@
 - apple music
 - streamline connection
 - how much did you like the song that just played
-- delete the songs not terribly and after termination
-- blacklist
+- blacklist users
+- blacklist songs
 
 # responsiveness
 - remove items from queue

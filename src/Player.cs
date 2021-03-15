@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DSharpPlus.Entities;
+using DSharpPlus.EventArgs;
 using DSharpPlus.VoiceNext;
 using SpotifyAPI.Web;
 
@@ -13,21 +14,64 @@ namespace AssiSharpPlayer
 {
     public class Player
     {
-        private VoiceNextConnection voiceConnection = null;
-
+        
+        private VoiceNextConnection voiceConnection;
         private QueueManager queue;
         public bool running;
+        private bool skip;
+        public bool pause = false;
+        public bool voteskipping { get; private set; }
+        public const float VoteSkipsPrecent = 1 / 3f;
+        public TrackRecord currentTrack;
 
         public Player(DiscordChannel voiceChannel)
         {
+            Program.players.Add(voiceChannel.GuildId, this);
             voiceConnection = voiceChannel.ConnectAsync().GetAwaiter().GetResult();
-            queue = new QueueManager(GetMembersListening());
+            queue = new QueueManager(GetMembersListening().Where(u => SpotifyManager.Cache.ContainsKey(u.Id)));
         }
 
         public async Task PlayRadio()
         {
             for (int i = 0; i < QueueManager.RadioQueueAmount; i++)
-                await queue.QueueNextRadio();
+                await queue.QueueNextRadio().ConfigureAwait(false);
+        }
+
+        public async Task VoteSkip(DiscordChannel channel)
+        {
+            voteskipping = true;
+            //autoskip
+            if (GetMembersListening().Count() * VoteSkipsPrecent <= 1)
+            {
+                skip = true;
+                await channel.SendMessageAsync("Skipping...");
+                voteskipping = false;
+                return;
+            }
+
+            var msg = await channel.SendMessageAsync("all in favor of skipping vote");
+            await msg.CreateReactionAsync(DiscordEmoji.FromName(Program.Bot.Client, ":white_check_mark:"));
+
+            bool SkipVote(MessageReactionAddEventArgs m)
+            {
+                var reactions = m.Message.Reactions;
+                foreach (var r in reactions)
+                {
+                    if (r.Emoji.GetDiscordName() == ":white_check_mark:")
+                        return r.Count * VoteSkipsPrecent <= 1;
+                }
+
+                throw new Exception("Could not find reaction \":white_check_mark:\" in message reactions");
+            }
+
+            var result = await Program.Bot.Interactivity.WaitForReactionAsync(SkipVote, new TimeSpan(0, 1, 0));
+            voteskipping = false;
+            if (!result.TimedOut)
+            {
+                skip = true;
+                await channel.SendMessageAsync("Skipping...");
+            }
+            else await channel.SendMessageAsync("Vote skip timeout");
         }
 
         private static async Task SendTrackEmbed(TrackRecord track, DiscordChannel textChannel)
@@ -51,11 +95,13 @@ namespace AssiSharpPlayer
 
         public async Task Update(DiscordChannel textChannel)
         {
-            while (true)
+            running = true;
+            while (running)
             {
-                TrackRecord track = await queue.NextTrack();
-                await SendTrackEmbed(track, textChannel);
-                await Play(track.Path);
+                currentTrack = await queue.NextTrack();
+                await SendTrackEmbed(currentTrack, textChannel);
+                await Play(currentTrack.Path);
+                skip = false;
             }
         }
 
@@ -80,7 +126,9 @@ namespace AssiSharpPlayer
             int br;
             while ((br = await ffout.ReadAsync(buff.AsMemory(0, buff.Length))) > 0)
             {
-
+                if (skip || !running) break;
+                while (pause) {}
+                
                 if (br < buff.Length) // not a full sample, mute the rest
                 {
                     for (var i = br; i < buff.Length; i++)
@@ -89,11 +137,17 @@ namespace AssiSharpPlayer
 
                 await voiceConnection.GetTransmitSink().WriteAsync(buff);
             }
-
+            ffmpeg.Kill();
             await voiceConnection.SendSpeakingAsync(false); // we're not speaking anymore
             await voiceConnection.WaitForPlaybackFinishAsync();
         }
 
+        public async Task Terminate()
+        {
+            running = false;
+            await queue.Terminate();
+        }
+        
         public IEnumerable<DiscordMember> GetMembersListening()
         {
             var users = voiceConnection.TargetChannel.Users;

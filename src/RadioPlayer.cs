@@ -9,8 +9,7 @@ using SpotifyAPI.Web;
 
 namespace AssiSharpPlayer
 {
-
-    public class SongInfo
+    /*public class SongInfo
     {
         public FullTrack track;
         public Listener user;
@@ -19,7 +18,7 @@ namespace AssiSharpPlayer
         public List<string> genres;
         private List<Listener> users;
         
-        public SongInfo(FullTrack track, Listener user, List<Listener> users)
+        public SongInfo(FullTrack track, FullArtist artist, Listener user, List<Listener> users)
         {
             this.track = track;
             this.users = users;
@@ -27,7 +26,7 @@ namespace AssiSharpPlayer
 
             popularity = track.Popularity / 100f;
 
-            genres = Listener.tracks[track].Genres;
+            genres = artist.Genres;
 
             
             CalculateUserRatings().GetAwaiter().GetResult();
@@ -39,34 +38,38 @@ namespace AssiSharpPlayer
         private const float LikedSongWeight = 70;
         private const float GenreWeight = 20;
 
-        private Task CalculateUserRatings()
+        public Task AddUserRating(Listener u)
+        {
+            var genreOverlapping = genres.Intersect(u.genreWeights.Keys);
+            float genreValue = genreOverlapping.Sum(g => u.genreWeights[g]) * GenreWeight;
+
+            bool userSaved = u.likedTracks.Contains(track);
+            float userSavedValue = Convert.ToInt32(userSaved) * LikedSongWeight;
+
+            bool userSavedArtist = u.favoriteArtists.Select(a => a.Href).Contains(track.Artists[0].Href);
+            float userSavedArtistValue = Convert.ToInt32(userSavedArtist) * LikedArtistWeight;
+
+            bool userSavedAlbum = u.favoriteAlbums.Select(a => a.Href).Contains(track.Album.Href);
+            float userSavedAlbumValue = Convert.ToInt32(userSavedAlbum) * LikedAlbumWeight;
+
+            bool userTopTrack = u.topTracks.Select(t => t.Href).Contains(track.Href);
+            float userTopTrackValue = Convert.ToInt32(userTopTrack);
+            if (userTopTrack) userTopTrackValue = (Listener.TopSongsLimit - u.topTracks.IndexOf(track)) * TopSongWeight;
+
+            float rating = genreValue + userSavedAlbumValue + userSavedArtistValue + userSavedValue + userTopTrackValue;
+            userRatings.Add(u, rating);
+
+            return Task.CompletedTask;
+        }
+        
+        private async Task CalculateUserRatings()
         {
             //calculate if in liked songs, if in liked albums, if in liked artists, if in top songs, if in top artists, if in fav genres.
 
             foreach (var u in users)
             {
-                var genreOverlapping = genres.Intersect(u.genreWeights.Keys);
-                var u1 = u;
-                float genreValue = genreOverlapping.Sum(g => u1.genreWeights[g]) * GenreWeight;
-
-                bool userSaved = u.likedTracks.Contains(track);
-                float userSavedValue = Convert.ToInt32(userSaved) * LikedSongWeight;
-
-                bool userSavedArtist = u.favoriteArtists.Select(a => a.Href).Contains(track.Artists[0].Href);
-                float userSavedArtistValue = Convert.ToInt32(userSavedArtist) * LikedArtistWeight;
-
-                bool userSavedAlbum = u.favoriteAlbums.Select(a => a.Href).Contains(track.Album.Href);
-                float userSavedAlbumValue = Convert.ToInt32(userSavedAlbum) * LikedAlbumWeight;
-
-                bool userTopTrack = u.topTracks.Select(t => t.Href).Contains(track.Href);
-                float userTopTrackValue = Convert.ToInt32(userTopTrack);
-                if (userTopTrack) userTopTrackValue = (Listener.TopSongsLimit - u.topTracks.IndexOf(track)) * TopSongWeight;
-
-                float rating = genreValue + userSavedAlbumValue + userSavedArtistValue + userSavedValue + userTopTrackValue;
-                userRatings.Add(u, rating);
+                await AddUserRating(u);
             }
-
-            return Task.CompletedTask;
         }
 
         public float CalculateSongRating(Dictionary<string, float> genreWeights, Dictionary<Listener, float> userWeights)
@@ -80,6 +83,25 @@ namespace AssiSharpPlayer
                 newUserRatings[u] *= userWeights[u];
             
             return popularity * genreValue * newUserRatings.Values.Average();
+        }
+    }
+    
+    public class Ref<T>
+    {
+        public T Value
+        {
+            get => getter();
+            set => setter(value);
+        }
+  
+
+        Func<T> getter;
+        Action<T> setter;
+  
+        public Ref(Func<T> getter, Action<T> setter)
+        {
+            this.getter = getter;
+            this.setter = setter;
         }
     }
 
@@ -171,81 +193,14 @@ namespace AssiSharpPlayer
             }
         }
         
-        public async Task<IEnumerable<SongInfo>> GetNewSongInfos(List<Listener> listeners)
+        public async Task<IEnumerable<SongInfo>> GetSongInfos(List<Listener> listeners)
         {
-
-            const int requestSize = 20;
             
-            HashSet<FullTrack> result = new();
-
-            List<FullTrack[]> requests = new List<FullTrack[]>();
-            int i = 0;
-            
-            foreach (var s in likedTracks)
-            {
-                if (tracks.ContainsKey(s)) continue;
-
-                if (i % requestSize == 0)
-                {
-                    requests.Add(new FullTrack[requestSize]);
-                    requests[^1][0] = s;
-                }
-                else
-                {
-                    requests[^1][i % requestSize] = s;
-                }
-                
-                tracks.Add(s, null);
-                result.Add(s);
-                i++;
-            }
-
-            requests[^1] = requests[^1].Clean().ToArray();
-            
-            List<FullTrack> requestRemainders = new();
-
-            foreach (var track in topTracks)
-            {
-                if (tracks.Keys.Select(t => t.Href).Contains(track.Href)) continue;
-                
-                tracks.Add(track, null);
-                requestRemainders.Add(track);
-            }
-            
-            if (requestRemainders.Count > 0)
-            {
-                // ReSharper disable once PossibleLossOfFraction
-                for (int j = 0; j < MathF.Floor(requestRemainders.Count / requestSize); j++)
-                {
-                    requests.Add(new FullTrack[requestSize]);
-                    requestRemainders.GetRange(j * requestSize, requestSize).CopyTo(requests[^1]);
-                }
-                requests.Add(new FullTrack[requestRemainders.Count % requestSize]);
-                requestRemainders.GetRange(requestRemainders.Count - requestRemainders.Count % requestSize,
-                    requestRemainders.Count % requestSize).CopyTo(requests[^1]);
-            }
-
-            await SetTrackArtists(requests);
-            
-            return result.Select(t => new SongInfo(t, this, listeners));
+            HashSet<SongInfo> result = new();
+            result.Append<SongInfo>(topTracks.Select(t => new SongInfo(t, this, listeners)));
+            result.Append<SongInfo>(likedTracks.Select(t => new SongInfo(t, this, listeners)));
+            return result;
         }
-
-        private static async Task SetTrackArtists(IEnumerable<FullTrack[]> requests)
-        {
-            foreach (var r in requests)
-            {
-                var ids = r.Select(request => request.Artists[0].Id).ToList();
-                var results = await SpotifyManager.GlobalClient.Artists.GetSeveral(new(ids));
-
-                for (int i = 0; i < r.Length; i++)
-                {
-                    var artist = results.Artists[i];
-                    tracks[r[i]] = artist;
-                }
-            }
-        }
-
-        public static Dictionary<FullTrack, FullArtist> tracks = new();
         
         public HashSet<FullArtist> topTrackArtists = new();
         public HashSet<FullAlbum> favoriteAlbums = new();
@@ -253,6 +208,67 @@ namespace AssiSharpPlayer
         public List<FullTrack> topTracks;
         public HashSet<FullTrack> likedTracks = new();
         public Dictionary<string, float> genreWeights = new();
+    
+    }
+
+
+    class FullRequestSession
+    {
+        
+
+        private bool open = true;
+        private bool join = false;
+        private Task requestTask;
+        private bool listen_until_joined = true;
+
+        public FullRequestSession(bool listen_until_joined=true)
+        {
+            this.listen_until_joined = listen_until_joined;
+        }
+        
+        public async Task Start()
+        {
+            join = false;
+            open = true;
+            requestTask = RequestFullArtistBatch();
+            await requestTask;
+        }
+        
+        private async Task RequestFullArtistBatch(int request_limit = 20)
+        {
+            while (open)
+            {
+                while (requests.Count < request_limit) await Task.Delay(1000);
+                var r = requests.GetRange(0, request_limit);
+                var answers = (await SpotifyManager.GlobalClient.Artists.GetSeveral(
+                    new(r.Select(i => i.Item1).ToList()))).Artists;
+
+                for (int i = 0; i < request_limit; i++)
+                {
+                    r[i].Item2.Value = answers[i];
+                }
+
+                if ((requests.Count == 0 && !listen_until_joined) || join)
+                    open = false;
+                
+            }
+        }
+
+        private List<Tuple<string, Ref<FullArtist>>> requests;
+        
+        public Task RequestFullArtist(Ref<FullArtist> reference, string id)
+        {
+            requests.Add(new Tuple<string, Ref<FullArtist>>(id, reference));
+            Task.WaitAll(requestTask);
+            return Task.CompletedTask;
+        }
+
+        public Task Join()
+        {
+            join = true;
+            Task.WaitAll(requestTask);
+            return Task.CompletedTask;
+        }
     }
     
     public static class Requestor
@@ -310,136 +326,39 @@ namespace AssiSharpPlayer
         }
     }
     
+    */
+
+
     public class RadioPlayer
     {
-        private List<SongInfo> songs;
-
-        private Dictionary<string, float> genreWeights = new();
-        private Dictionary<Listener, float> userWeights = new();
-        private List<Listener> listeners = new();
-
-        public RadioPlayer(IEnumerable<ulong> users)
+        private List<ulong> users;
+        public RadioPlayer(List<ulong> users)
         {
-            foreach (var u in users) listeners.Add(new Listener(u));
-            
-            songs = new List<SongInfo>(GetTracksOfUsers(listeners).GetAwaiter().GetResult());
-            
-            
-            foreach (var l in listeners)
-                userWeights[l] = 1;
+            this.users = users;
         }
 
-        private static T WeightedRandom<T>(Dictionary<T, float> dict)
+        private bool TrackInBlacklist(FullTrack track)
         {
-            float length = dict.Values.Sum();
-            var random = new Random();
-            float p = random.Next(Convert.ToInt32(MathF.Floor(length * 1000) / 1000f));
-            float v = 0;
-            foreach (var item in dict.Keys)
-            {
-                if (v + dict[item] < p) v += dict[item];
-                else return item;
-            }
-            throw new Exception("p overexceeded dict weights");
+            return users.Where(u => Program.blacklists.ContainsKey(u)).Any(u => Program.blacklists[u].Contains(track.Id));
         }
         
-        public FullTrack BigDic()
+        public async Task<FullTrack> RandomFavorite(IEnumerable<FullTrack> history)
         {
-            Dictionary<SongInfo, float> songWeights = new();
+            Random r = new();
+            var ui = r.Next(users.Count);
+            var u = users[ui];
 
-            foreach (var s in songs)
-                songWeights[s] = s.CalculateSongRating(genreWeights, userWeights);
+            var client = await SpotifyManager.GetClient(u);
 
-            SongInfo track = WeightedRandom(songWeights);
+            List<FullTrack> tracks = (await client.Personalization.GetTopTracks
+                (new(){Limit = 50, TimeRangeParam = PersonalizationTopRequest.TimeRange.ShortTerm})).Items;
 
-            BalanceWeights(track);
-            songs.Remove(track);
+            int tracki = r.Next(tracks!.Count);
+            while (history.Contains(tracks[tracki]) || TrackInBlacklist(tracks[tracki])) tracki = r.Next(tracks!.Count); 
             
-            return track.track;
+            return tracks[tracki];
         }
-
-        private const float ReduceGenreWeight = 0.25f;
-        private const float ReduceUserWeight = 0.25f;
-
-        private void BalanceWeights(SongInfo track)
-        {
-            List<string> trackGenres = track.genres;
-
-            foreach (var g in trackGenres)
-                genreWeights[g] -= ReduceGenreWeight / trackGenres.Count;
-
-            foreach (var g in genreWeights.Keys)
-                genreWeights[g] += ReduceGenreWeight / genreWeights.Count;
-            
-
-
-            userWeights[track.user] -= ReduceUserWeight;
-            foreach (var u in userWeights.Keys)
-            {
-                userWeights[u] += ReduceUserWeight / listeners.Count;
-            }
-        }
-        
-        private async Task<IEnumerable<SongInfo>> GetTracksOfUsers(IEnumerable<Listener> users)
-        {
-            List<SongInfo> result = new();
-            var enumerable = users.ToList();
-            foreach (var u in enumerable)
-            {
-                
-                var tracks = await u.GetNewSongInfos(enumerable);
-                
-                foreach (var s in tracks)
-                {
-                    result.Add(s);
-                    foreach (var g in s.genres)
-                    {
-                        if (genreWeights.ContainsKey(g)) genreWeights[g] += 1;
-                        else genreWeights[g] = 1;
-                    }
-                }
-                
-            }
-
-            return result;
-        }
-        
-        public static async Task<FullTrack> RandomFavorite(IEnumerable<DiscordMember> membersListening,
-                                                           List<TrackRecord> history, Queue<TrackRecord> queue)
-        {
-            IEnumerable<SpotifyClient> clients =
-                membersListening.Select(m => SpotifyManager.GetClient(m.Id).GetAwaiter().GetResult());
-
-            List<FullTrack> tracks = new();
-            foreach (var client in clients)
-            {
-                if (client != null)
-                {
-                    tracks.AddRange(
-                        (await client.Personalization.GetTopTracks(new() {Limit = 50})).Items ??
-                        throw new ArgumentNullException(nameof(membersListening)));
-                }
-            }
-
-            FullTrack result = null;
-            while (result == null || history.Select(r => r.Track).Contains(result) ||
-                   queue.Select(r => r.Track).Contains(result))
-                result = tracks.RandomChoice();
-
-            return result;
-        }
-
-        public static void NotMain()
-        {
-            Console.WriteLine("started");
-            RadioPlayer r = new(new List<ulong>() {329960504376426496, 417610386871812098});
-            Console.WriteLine("created radio player");
-            for (int i = 0; i < 100; i++)
-            {
-                r.BigDic();
-            }
-            Console.WriteLine("ended");
-        }
-        
     }
+
+    
 }

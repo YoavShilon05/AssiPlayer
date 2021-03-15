@@ -43,18 +43,6 @@ namespace AssiSharpPlayer
             Uri = uri;
             Downloaded = downloaded;
         }
-
-        public void Set(TrackRecord other)
-        {
-            Track = other.Track;
-            FullName = other.FullName;
-            Path = other.Path;
-            Length = other.Length;
-            Channel = other.Channel;
-            Downloaded = other.Downloaded;
-            Thumbnail = other.Thumbnail;
-            Uri = other.Uri;
-        }
     }
 
 

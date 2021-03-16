@@ -20,6 +20,8 @@ namespace AssiSharpPlayer
         public bool running;
         private bool skip;
         public bool pause = false;
+        private RadioGetters radiogetter;
+        
         public bool voteskipping { get; private set; }
         public const float VoteSkipsPrecent = 1 / 3f;
         public TrackRecord currentTrack;
@@ -31,10 +33,12 @@ namespace AssiSharpPlayer
             queue = new QueueManager(GetMembersListening().Where(u => SpotifyManager.Cache.ContainsKey(u.Id)));
         }
 
-        public async Task PlayRadio()
+        public async Task PlayRadio(RadioGetters getter=RadioGetters.Radio)
         {
+            radiogetter = getter;
+            queue.Clear();
             for (int i = 0; i < QueueManager.RadioQueueAmount; i++)
-                await queue.QueueNextRadio().ConfigureAwait(false);
+                await queue.QueueNextRadio(getter).ConfigureAwait(false);
         }
 
         public async Task VoteSkip(DiscordChannel channel)
@@ -98,7 +102,7 @@ namespace AssiSharpPlayer
             running = true;
             while (running)
             {
-                currentTrack = await queue.NextTrack();
+                currentTrack = await queue.NextTrack(true, radiogetter);
                 await SendTrackEmbed(currentTrack, textChannel);
                 await Play(currentTrack.Path);
                 skip = false;
@@ -145,7 +149,7 @@ namespace AssiSharpPlayer
         public async Task Terminate()
         {
             running = false;
-            await queue.Terminate();
+            queue.Terminate();
         }
         
         public IEnumerable<DiscordMember> GetMembersListening()

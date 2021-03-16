@@ -15,6 +15,14 @@ namespace AssiSharpPlayer
         Track
     }
 
+    public enum RadioGetters
+    {
+        Radio,
+        Playlist_Shuffle,
+        Playlist_Walkthrough,
+        Artist
+    }
+    
     public class QueueManager
     {
         private Queue<TrackRecord> radioQueue = new();
@@ -28,19 +36,58 @@ namespace AssiSharpPlayer
         private Thread downloader;
         private bool running = true;
 
+
+        private async Task<FullTrack> RadioGetter() =>
+            await radio.RandomFavorite(history.Select(t => t.Track));
+        
+        
+        private Task<FullTrack> PlaylistShuffleGetter()
+        {
+            throw new NotImplementedException();
+        }
+        
+        private Task<FullTrack> PlaylistWalkthroughGetter()
+        {
+            throw new NotImplementedException();
+        }
+        
+        private Task<FullTrack> ArtistGetter()
+        {
+            throw new NotImplementedException();
+        }
+
+        private Dictionary<RadioGetters, Func<Task<FullTrack>>> getters;
+
         private Queue<(FullTrack, QueueType)> downloading = new();
 
         public QueueManager(IEnumerable<DiscordMember> users)
         {
             radio = new RadioPlayer(users.Select(u => u.Id).ToList());
+            
+            getters = new()
+            {
+                {RadioGetters.Radio, RadioGetter},
+                {RadioGetters.Artist, ArtistGetter},
+                {RadioGetters.Playlist_Shuffle, PlaylistShuffleGetter},
+                {RadioGetters.Playlist_Walkthrough, PlaylistWalkthroughGetter}
+                
+            };
+            
             downloader = new(async () =>
             {
                 while (running || downloading.Count > 0)
                 {
                     while (downloading.Count == 0) { }
 
-                    var (track, type) = downloading.Dequeue();
-                    AddToQueue(await Download(track), type);
+                    var (track, type) = downloading.Peek();
+                    var downloaded = await Download(track);
+                    
+                    // check if track not removed
+                    if (downloading.Peek().Item1.Id == track.Id)
+                    {
+                        AddToQueue(downloaded, type);
+                        downloading.Dequeue();
+                    }
                 }
             });
             downloader.Start();
@@ -67,9 +114,9 @@ namespace AssiSharpPlayer
             return record;
         }
 
-        public async Task QueueNextRadio()
+        public async Task QueueNextRadio(RadioGetters getter)
         {
-            FullTrack r = await radio.RandomFavorite(history.Select(t => t.Track));
+            FullTrack r = await getters[getter]();
             downloading.Enqueue((r, QueueType.Radio));
         }
 
@@ -85,13 +132,13 @@ namespace AssiSharpPlayer
             return Task.CompletedTask;
         }
 
-        public async Task<TrackRecord> NextTrack(bool download_next=true)
+        public async Task<TrackRecord> NextTrack(bool download_next=true, RadioGetters getter=RadioGetters.Radio)
         {
             while (trackQueue.Count == 0 && radioQueue.Count == 0) {}
             if (trackQueue.Count == 0)
             {
                 if (history.Count > 0) File.Delete(history[^1].Path);
-                if (download_next) await QueueNextRadio().ConfigureAwait(false);
+                if (download_next) await QueueNextRadio(getter).ConfigureAwait(false);
                 var track = radioQueue.Dequeue();
                 history.Add(track);
                 return track;
@@ -99,14 +146,18 @@ namespace AssiSharpPlayer
             return trackQueue.Dequeue();
         }
 
-        public async Task Terminate()
+        public void Terminate()
         {
             running = false;
             downloader.Join();
+            Clear();
+        }
 
-            for (int i = 0; i < RadioQueueAmount; i++)
-                File.Delete((await NextTrack(false)).Path);
-            
+        public void Clear()
+        {
+            downloading.Clear();
+            radioQueue.Clear();
+            trackQueue.Clear();
         }
     }
 }

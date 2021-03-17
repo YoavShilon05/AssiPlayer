@@ -25,8 +25,9 @@ namespace AssiSharpPlayer
     
     public class QueueManager
     {
-        private Queue<TrackRecord> radioQueue = new();
-        private Queue<TrackRecord> trackQueue = new();
+        public Queue<TrackRecord> radioQueue { get; private set; } = new();
+        public Queue<TrackRecord> trackQueue { get; private set; } = new();
+        public Queue<(FullTrack, QueueType)> downloading { get; private set; } = new();
         private RadioPlayer radio;
 
         public List<TrackRecord> history = new();
@@ -39,7 +40,11 @@ namespace AssiSharpPlayer
 
         private async Task<FullTrack> RadioGetter() =>
             await radio.RandomFavorite(history.Select(t => t.Track));
-        
+
+        public void RemoveItemFromDownloadingQueue(FullTrack track)
+        {
+            downloading = new Queue<(FullTrack, QueueType)>(downloading.Where(t => t.Item1.Id != track.Id));
+        }
         
         private Task<FullTrack> PlaylistShuffleGetter()
         {
@@ -57,9 +62,7 @@ namespace AssiSharpPlayer
         }
 
         private Dictionary<RadioGetters, Func<Task<FullTrack>>> getters;
-
-        private Queue<(FullTrack, QueueType)> downloading = new();
-
+        
         public QueueManager(IEnumerable<DiscordMember> users)
         {
             radio = new RadioPlayer(users.Select(u => u.Id).ToList());
@@ -75,7 +78,7 @@ namespace AssiSharpPlayer
             
             downloader = new(async () =>
             {
-                while (running || downloading.Count > 0)
+                while (running)
                 {
                     while (downloading.Count == 0) { }
 
@@ -83,7 +86,7 @@ namespace AssiSharpPlayer
                     var downloaded = await Download(track);
                     
                     // check if track not removed
-                    if (downloading.Peek().Item1.Id == track.Id)
+                    if (downloading.Count > 0 && downloading.Peek().Item1.Id == track.Id)
                     {
                         AddToQueue(downloaded, type);
                         downloading.Dequeue();

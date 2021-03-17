@@ -29,6 +29,15 @@ namespace AssiSharpPlayer
                 await ctx.RespondAsync(BotNotConnectedMessage);
         }
 
+        [Command("ping")]
+        public async Task Ping(CommandContext ctx) => await ctx.RespondAsync("pong");
+
+        [Command("money")]
+        public async Task Money(CommandContext ctx)
+        {
+            await ctx.RespondAsync("is so much better than time");
+        }
+        
         // [Command("test")]
         // public async Task Test(CommandContext ctx) =>
         //     await ctx.Channel.SendMessageAsync("test working");
@@ -272,61 +281,64 @@ namespace AssiSharpPlayer
                     await ctx.RespondAsync("player is already playing on this server.");
             });
         }
-        //
-        // [Command("queue")]
-        // public async Task Queue(CommandContext ctx)
-        // {
-        //     await Check(ctx, async () =>
-        //     {
-        //         var player = Program.players[ctx.Guild.Id];
-        //
-        //         string result = "```";
-        //         int i = 0;
-        //         if (player.downloadedQueue.Count == 0)
-        //         {
-        //             await ctx.RespondAsync("Queue is empty right now!");
-        //             return;
-        //         }
-        //
-        //         foreach (var track in player.downloadedQueue)
-        //         {
-        //             i++;
-        //             result +=
-        //                 $"{i}. {track.FullName} - {track.Track.Artists[0].Name} - {new TimeSpan(0, 0, (int)track.Length)}\n";
-        //         }
-        //
-        //         await ctx.RespondAsync(result + "```");
-        //     });
-        // }
-        //
-        // [Command("remove")]
-        // public async Task RemoveFromQueue(CommandContext ctx, int index)
-        // {
-        //     await Check(ctx, async () =>
-        //     {
-        //         var player = Program.players[ctx.Guild.Id];
-        //         await player.RemoveFromQueue(index);
-        //     });
-        // }
-        //
-        // [Command("time")]
-        // public async Task Time(CommandContext ctx)
-        // {
-        //     Console.WriteLine("is better than money.");
-        //     await Check(ctx, async () =>
-        //     {
-        //         Player p = Program.players[ctx.Guild.Id];
-        //         TrackRecord t = p.CurrentTrack;
-        //         if (t != null)
-        //         {
-        //             await ctx.RespondAsync(
-        //                 $"{p.songStartTime + new TimeSpan(0, 0, 0, (int)p.CurrentTrack.Length) - DateTime.Now:m\\:ss}" +
-        //                 " minutes are left");
-        //         }
-        //         else
-        //             await ctx.RespondAsync("No search is currently playing on your server! 💥");
-        //     });
-        // }
+        
+        
+        [Command("queue")]
+        public async Task Queue(CommandContext ctx)
+        {
+            await Check(ctx, async () =>
+            {
+                var player = Program.players[ctx.Guild.Id];
+        
+                string result = "```";
+                int i = 0;
+                if (player.GetQueue().Count == 0)
+                {
+                    await ctx.RespondAsync("Queue is empty right now!");
+                    return;
+                }
+        
+                foreach (var track in player.GetQueue())
+                {
+                    i++;
+                    result +=
+                        $"{i}. {track.Name} - {track.Artists[0].Name}\n";
+                }
+        
+                await ctx.RespondAsync(result + "```");
+            });
+        }
+        
+        [Command("remove")]
+        public async Task RemoveFromQueue(CommandContext ctx, int index)
+        {
+            await Check(ctx, () =>
+            {
+                var player = Program.players[ctx.Guild.Id];
+                player.RemoveFromQueue(index - 1);
+                return Task.CompletedTask;
+            });
+        }
+        
+        
+        [Command("time")]
+        public async Task Time(CommandContext ctx)
+        {
+            Console.WriteLine("is better than money.");
+            await Check(ctx, async () =>
+            {
+                Player p = Program.players[ctx.Guild.Id];
+                TrackRecord t = p.currentTrack;
+                if (t != null)
+                {
+                    await ctx.RespondAsync(
+                        $"{p.currentTrackStartTime + new TimeSpan(0, 0, 0, (int)p.currentTrack.Length) - DateTime.Now:m\\:ss}" +
+                        " minutes are left");
+                }
+                else
+                    await ctx.RespondAsync("No search is currently playing on your server! 💥");
+            });
+        }
     }
 
     public static class Events

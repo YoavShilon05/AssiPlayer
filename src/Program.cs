@@ -28,7 +28,7 @@ namespace AssiSharpPlayer
             blacklists = JsonConvert.DeserializeObject<Dictionary<ulong, List<string>>>(File.ReadAllText("Blacklists.json"));
             
             Bot = new(new[] {"s."});
-            Bot.Run(File.ReadAllText("Token.txt")).GetAwaiter().GetResult();
+            Bot.Run(File.ReadAllText("Token.txt")).ConfigureAwait(false).GetAwaiter().GetResult();
 
             SpotifyManager.SaveCache();
         }

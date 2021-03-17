@@ -18,13 +18,8 @@
 - streamline connection
 - how much did you like the song that just played
 - blacklist users
-- blacklist songs
 
 # responsiveness
-- remove items from queue
-- how much time left
-- pause
-- write message if queue is empty
 - if you skip a lot and the bot starts to lag say something about it
 
 # radio algorithms

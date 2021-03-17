@@ -25,7 +25,60 @@ namespace AssiSharpPlayer
         public bool voteskipping { get; private set; }
         public const float VoteSkipsPrecent = 1 / 3f;
         public TrackRecord currentTrack;
+        public DateTime currentTrackStartTime;
 
+        private (List<FullTrack> tracks, List<FullTrack> radios) GetTracksInQueues()
+        {
+            List<FullTrack> tracks = new();
+            List<FullTrack> radios = new();
+            
+            tracks.AddRange(queue.trackQueue.ToArray().Select(i => i.Track));
+            radios.AddRange(queue.radioQueue.ToArray().Select(i => i.Track));
+
+            foreach (var (track, queueType) in queue.downloading)
+            {
+                switch (queueType)
+                {
+                    case QueueType.Radio:
+                        radios.Add(track);
+                        break;
+                    case QueueType.Track:
+                        tracks.Add(track);
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+            }
+
+            return (tracks, radios);
+        }
+        
+        public List<FullTrack> GetQueue()
+        {
+            var (result, radios) = GetTracksInQueues();
+            result.AddRange(radios);
+            return result;
+        }
+
+        public void RemoveFromQueue(int idx)
+        {
+            var (tracks, radios) = GetTracksInQueues();
+
+            if (idx < tracks.Count)
+            {
+                if (idx <= queue.trackQueue.Count)
+                    queue.trackQueue.Remove(idx);
+                else queue.RemoveItemFromDownloadingQueue(tracks[idx]);
+            }
+            else if (idx < tracks.Count + radios.Count)
+            {
+                if (idx < queue.radioQueue.Count)
+                    queue.radioQueue.Remove(idx);
+                else queue.RemoveItemFromDownloadingQueue(radios[idx]);
+            }
+            else throw new ArgumentOutOfRangeException("index given was outside the range of tracks.");
+        }
+        
         public Player(DiscordChannel voiceChannel)
         {
             Program.players.Add(voiceChannel.GuildId, this);
@@ -35,8 +88,8 @@ namespace AssiSharpPlayer
 
         public async Task PlayRadio(RadioGetters getter=RadioGetters.Radio)
         {
-            radiogetter = getter;
             queue.Clear();
+            radiogetter = getter;
             for (int i = 0; i < QueueManager.RadioQueueAmount; i++)
                 await queue.QueueNextRadio(getter).ConfigureAwait(false);
         }
@@ -104,6 +157,7 @@ namespace AssiSharpPlayer
             {
                 currentTrack = await queue.NextTrack(true, radiogetter);
                 await SendTrackEmbed(currentTrack, textChannel);
+                currentTrackStartTime = DateTime.Now;
                 await Play(currentTrack.Path);
                 skip = false;
             }

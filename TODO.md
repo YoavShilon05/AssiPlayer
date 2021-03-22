@@ -1,10 +1,8 @@
 ﻿# bug-fixes
 - radio tries to play if no members in call are connected
-- cross-player history
 - if two servers are downloading the same song, the first server to finish playing it will delete the file from existence and the other server won't hear it.
 - connection is zombie
 - maybe downloading things doesn't work if the file already exists
-- if downloading song and while downloading queue then queue doesn't work
 
 # code
 - optimize radio

@@ -31,17 +31,8 @@ namespace AssiSharpPlayer
 
         [Command("ping")]
         public async Task Ping(CommandContext ctx) => await ctx.RespondAsync("pong");
-
-        [Command("money")]
-        public async Task Money(CommandContext ctx)
-        {
-            await ctx.RespondAsync("is so much better than time");
-        }
         
-        // [Command("test")]
-        // public async Task Test(CommandContext ctx) =>
-        //     await ctx.Channel.SendMessageAsync("test working");
-        //
+        
         [Command("radio")]
         public async Task Radio(CommandContext ctx)
         {
@@ -158,32 +149,30 @@ namespace AssiSharpPlayer
             await ctx.RespondAsync($"you have no blacklists!");
         }
         
-        // [Command("track")]
-        // public async Task Track(CommandContext ctx, params string[] trackName)
-        // {
-        //     string search = " ".Join(trackName);
-        //     var track = await SpotifyManager.SearchSong(search);
-        //
-        //     Player player = Program.players.ContainsKey(ctx.Guild.Id) ?
-        //         Program.players[ctx.Guild.Id] :
-        //         new(ctx.Member.VoiceState.Channel);
-        //     await player.AddTrack(track, ctx.Channel);
-        //     if (!player.running) await player.Main(ctx.Channel);
-        // }
-        //
-        // [Command("album")]
-        // public async Task Album(CommandContext ctx, params string[] albumName)
-        // {
-        //     string search = " ".Join(albumName);
-        //     var album = await SpotifyManager.SearchAlbum(search);
-        //
-        //     Player player = Program.players.ContainsKey(ctx.Guild.Id) ?
-        //         Program.players[ctx.Guild.Id] :
-        //         new(ctx.Member.VoiceState.Channel);
-        //     await player.AddAlbum(album, ctx.Channel);
-        //     if (!player.running) await player.Main(ctx.Channel);
-        // }
-        //
+        [Command("track")]
+        public async Task Track(CommandContext ctx, params string[] trackName)
+        {
+            string search = " ".Join(trackName);
+        
+            Player player = Program.players.ContainsKey(ctx.Guild.Id) ?
+                Program.players[ctx.Guild.Id] :
+                new(ctx.Member.VoiceState.Channel);
+            await player.QueueTrack(search);
+            if (!player.running) await player.Update(ctx.Channel);
+        }
+        
+        [Command("album")]
+        public async Task Album(CommandContext ctx, params string[] albumName)
+        {
+            string search = " ".Join(albumName);
+
+            Player player = Program.players.ContainsKey(ctx.Guild.Id) ?
+                Program.players[ctx.Guild.Id] :
+                new(ctx.Member.VoiceState.Channel);
+            await player.QueueAlbum(search);
+            if (!player.running) await player.Update(ctx.Channel);
+        }
+        
         [Command("terminate")]
         public async Task Terminate(CommandContext ctx)
         {
@@ -223,19 +212,20 @@ namespace AssiSharpPlayer
                 //     Program.players[ctx.Member.VoiceState.Channel.Id].SetRadio();
             }
         }
-        //
-        // [Command("disconnect")]
-        // public async Task Disconnect(CommandContext ctx)
-        // {
-        //     var creds = SpotifyManager.DeserializeCreds();
-        //     creds.Remove(ctx.Member.Id);
-        //     await File.WriteAllTextAsync("Connections.json", creds.ToJson());
-        //     await ctx.RespondAsync("Disconnected from the database!");
-        //
-        //     if (SpotifyManager.Cache.ContainsKey(ctx.User.Id) && ctx.Member.VoiceState.Channel != null)
-        //         Program.players[ctx.Member.VoiceState.Channel.Id].SetRadio();
-        // }
-        //
+        
+        [Command("disconnect")]
+        public async Task Disconnect(CommandContext ctx)
+        {
+            var creds = SpotifyManager.DeserializeCreds();
+            creds.Remove(ctx.Member.Id);
+            await File.WriteAllTextAsync("Connections.json", creds.ToJson());
+            await ctx.RespondAsync("Disconnected from the database!");
+            
+            //TODO: ...
+            //if (SpotifyManager.Cache.ContainsKey(ctx.User.Id) && ctx.Member.VoiceState.Channel != null)
+            //    Program.players[ctx.Member.VoiceState.Channel.Id].SetRadio();
+        }
+        
         [Command("test_connection")]
         public async Task TestConnection(CommandContext ctx)
         {
@@ -254,6 +244,27 @@ namespace AssiSharpPlayer
                     await Program.players[ctx.Guild.Id].VoteSkip(ctx.Channel);
                 else
                     await ctx.RespondAsync("a vote skip is already going in this server.");
+            });
+        }
+
+        [Command("loop")]
+        public async Task Loop(CommandContext ctx, params string[] songName)
+        {
+            await Check(ctx, async () =>
+            {
+                var player = Program.players[ctx.Guild.Id];
+                if (songName.Length > 0)
+                {
+                    string search = " ".Join(songName);
+                    FullTrack t = await SpotifyManager.SearchTrack(search);
+                    await player.LoopTrack(t);
+                }
+
+                else
+                {
+                    if (player.currentTrack != null)
+                        await player.LoopTrack(player.currentTrack.Track);
+                }
             });
         }
         
@@ -341,6 +352,34 @@ namespace AssiSharpPlayer
         }
     }
 
+    public class NotSoSeriousCommands : BaseCommandModule
+    {
+        [Command("money")]
+        public async Task Money(CommandContext ctx)
+        {
+            await ctx.RespondAsync("is so much better than time");
+        }
+
+        private const int MaybeHomoThresh = 700;
+        private const int YesHomoThresh = 1000;
+        
+        [Command("homo")] 
+        public async Task Homo(CommandContext ctx)
+        {
+            Random r = new();
+            int n = r.Next(1000);
+
+            await ctx.RespondAsync(n switch
+            {
+                >= YesHomoThresh => "yes homo",
+                >= MaybeHomoThresh => "maybe homo",
+                _ => "no homo"
+            });
+        }
+        
+        
+    }
+    
     public static class Events
     {
         public static Task Ready(object sender, ReadyEventArgs e)

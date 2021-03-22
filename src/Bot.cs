@@ -49,6 +49,7 @@ namespace AssiSharpPlayer
 
             //register commands 
             Commands.RegisterCommands<MainCommands>();
+            Commands.RegisterCommands<NotSoSeriousCommands>();
 
             //register events
             Client.Ready += Events.Ready;

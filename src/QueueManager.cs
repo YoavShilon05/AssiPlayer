@@ -20,7 +20,8 @@ namespace AssiSharpPlayer
         Radio,
         Playlist_Shuffle,
         Playlist_Walkthrough,
-        Artist
+        Artist,
+        Loop
     }
     
     public class QueueManager
@@ -37,6 +38,7 @@ namespace AssiSharpPlayer
         private Thread downloader;
         private bool running = true;
 
+        public FullTrack LoopTrack;
 
         private async Task<FullTrack> RadioGetter() =>
             await radio.RandomFavorite(history.Select(t => t.Track));
@@ -60,6 +62,11 @@ namespace AssiSharpPlayer
         {
             throw new NotImplementedException();
         }
+        
+        
+        private Task<FullTrack> LoopGetter() =>
+            Task.FromResult(LoopTrack);
+        
 
         private Dictionary<RadioGetters, Func<Task<FullTrack>>> getters;
         
@@ -72,8 +79,8 @@ namespace AssiSharpPlayer
                 {RadioGetters.Radio, RadioGetter},
                 {RadioGetters.Artist, ArtistGetter},
                 {RadioGetters.Playlist_Shuffle, PlaylistShuffleGetter},
-                {RadioGetters.Playlist_Walkthrough, PlaylistWalkthroughGetter}
-                
+                {RadioGetters.Playlist_Walkthrough, PlaylistWalkthroughGetter},
+                {RadioGetters.Loop, LoopGetter}
             };
             
             downloader = new(async () =>
@@ -138,9 +145,13 @@ namespace AssiSharpPlayer
         public async Task<TrackRecord> NextTrack(bool download_next=true, RadioGetters getter=RadioGetters.Radio)
         {
             while (trackQueue.Count == 0 && radioQueue.Count == 0) {}
+            
+            // checks if no other player is gonna play the song you are about to delete
+            if (history.Count > 0 && !OtherPlayerUsingTrack(history[^1].Track))
+                File.Delete(history[^1].Path);
+            
             if (trackQueue.Count == 0)
             {
-                if (history.Count > 0) File.Delete(history[^1].Path);
                 if (download_next) await QueueNextRadio(getter).ConfigureAwait(false);
                 var track = radioQueue.Dequeue();
                 history.Add(track);
@@ -156,9 +167,20 @@ namespace AssiSharpPlayer
             Clear();
         }
 
+        private static bool OtherPlayerUsingTrack(FullTrack track) =>
+            Program.players.Values.Any(p => p.GetQueue().Select(t => t.Id).Contains(track.Id));
+        
+        
         public void Clear()
         {
             downloading.Clear();
+
+            List<TrackRecord> downloadedTracks = radioQueue.ToList();
+            downloadedTracks.AddRange(trackQueue);
+
+            foreach (var t in downloadedTracks)
+                if (!OtherPlayerUsingTrack(t.Track)) File.Delete(history[^1].Path);
+            
             radioQueue.Clear();
             trackQueue.Clear();
         }

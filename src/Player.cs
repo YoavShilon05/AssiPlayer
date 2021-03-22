@@ -59,7 +59,15 @@ namespace AssiSharpPlayer
             result.AddRange(radios);
             return result;
         }
-
+        
+        public async Task QueueTrack(string search) =>
+            await queue.QueueTrack(await SpotifyManager.SearchTrack(search));
+        
+        
+        public async Task QueueAlbum(string search) =>
+            await queue.QueueAlbum(await SpotifyManager.SearchAlbum(search));
+        
+        
         public void RemoveFromQueue(int idx)
         {
             var (tracks, radios) = GetTracksInQueues();
@@ -76,7 +84,7 @@ namespace AssiSharpPlayer
                     queue.radioQueue.Remove(idx);
                 else queue.RemoveItemFromDownloadingQueue(radios[idx]);
             }
-            else throw new ArgumentOutOfRangeException("index given was outside the range of tracks.");
+            else throw new ArgumentOutOfRangeException(nameof(idx), "index given was outside the range of tracks.");
         }
         
         public Player(DiscordChannel voiceChannel)
@@ -200,12 +208,18 @@ namespace AssiSharpPlayer
             await voiceConnection.WaitForPlaybackFinishAsync();
         }
 
+        public async Task LoopTrack(FullTrack track)
+        {
+            queue.LoopTrack = track;
+            await PlayRadio(RadioGetters.Loop);
+        }
+        
         public async Task Terminate()
         {
             running = false;
             queue.Terminate();
+            voiceConnection.Disconnect();
         }
-        
         public IEnumerable<DiscordMember> GetMembersListening()
         {
             var users = voiceConnection.TargetChannel.Users;

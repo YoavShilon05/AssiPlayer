@@ -120,7 +120,7 @@ namespace AssiSharpPlayer
         public static Dictionary<ulong, PKCETokenResponse> DeserializeCreds() =>
             JsonConvert.DeserializeObject<Dictionary<ulong, PKCETokenResponse>>(File.ReadAllText("Connections.json"));
 
-        public static async Task<FullTrack> SearchSong(string search)
+        public static async Task<FullTrack> SearchTrack(string search)
         {
             var r = await GlobalClient.Search.Item(new(SearchRequest.Types.Track, search));
             return r.Tracks.Items![0];

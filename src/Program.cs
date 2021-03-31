@@ -23,7 +23,7 @@ namespace AssiSharpPlayer
             File.WriteAllText("Blacklists.json", blacklists.ToJson());
         }
         
-        private static void Main()
+        private static void NOTMain()
         {
             blacklists = JsonConvert.DeserializeObject<Dictionary<ulong, List<string>>>(File.ReadAllText("Blacklists.json"));
             

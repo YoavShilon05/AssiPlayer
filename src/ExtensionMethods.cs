@@ -9,6 +9,32 @@ namespace AssiSharpPlayer
 {
     public static class ExtensionMethods
     {
+        public static List<T> Sort<T, I>(this Dictionary<T, I> dict)
+        {
+            Dictionary<I, List<T>> weightedDict = dict.Reverse();
+            List<I> keys = weightedDict.Keys.ToList();
+            keys.Sort();
+
+            List<T> result = new();
+
+            foreach (var k in keys)
+                result.AddRange(weightedDict[k]);
+            
+            return result;
+        }
+
+        public static Dictionary<R, List<T>> Reverse<T, R>(this Dictionary<T, R> dict)
+        {
+            Dictionary<R, List<T>> result = new();
+            foreach(T k in dict.Keys)
+            {
+                if (result.ContainsKey(dict[k])) result[dict[k]].Add(k);
+                else result.Add(dict[k], new List<T>{k});
+            }
+
+            return result;
+        }
+
         public static string Join(this string slicer, IEnumerable<string> arr)
         {
             string result = "";

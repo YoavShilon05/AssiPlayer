@@ -9,6 +9,11 @@ namespace AssiSharpPlayer
 {
     public static class ExtensionMethods
     {
+        public static float Bias(float n, float max, float bias)
+        {
+            return MathF.Pow((n / max), bias);
+        }
+        
         public static List<T> Sort<T, I>(this Dictionary<T, I> dict)
         {
             Dictionary<I, List<T>> weightedDict = dict.Reverse();

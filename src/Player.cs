@@ -99,7 +99,10 @@ namespace AssiSharpPlayer
             queue.Clear();
             radiogetter = getter;
             for (int i = 0; i < QueueManager.RadioQueueAmount; i++)
+            {
                 await queue.QueueNextRadio(getter).ConfigureAwait(false);
+                while (!queue.radio.set) {}
+            }
         }
 
         public async Task VoteSkip(DiscordChannel channel)

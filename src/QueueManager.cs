@@ -29,8 +29,9 @@ namespace AssiSharpPlayer
         public Queue<TrackRecord> radioQueue { get; private set; } = new();
         public Queue<TrackRecord> trackQueue { get; private set; } = new();
         public Queue<(FullTrack, QueueType)> downloading { get; private set; } = new();
-        private RadioPlayer radio;
-
+        public RadioPlayer radio;
+        private RadioAlgorithms algorithm = RadioAlgorithms.radio;
+    
         public List<TrackRecord> history = new();
 
         public const int RadioQueueAmount = 5;
@@ -39,9 +40,13 @@ namespace AssiSharpPlayer
         private bool running = true;
 
         public FullTrack LoopTrack;
-
-        private async Task<FullTrack> RadioGetter() =>
-            await radio.RandomFavorite(history.Select(t => t.Track));
+        
+        private async Task<FullTrack> RadioGetter()
+        {
+            if (radio.set)
+                return radio.Next(algorithm);
+            return await radio.RandomFavorite(history.Select(r => r.Track));
+        }
 
         public void RemoveItemFromDownloadingQueue(FullTrack track)
         {
@@ -73,6 +78,7 @@ namespace AssiSharpPlayer
         public QueueManager(IEnumerable<DiscordMember> users)
         {
             radio = new RadioPlayer(users.Select(u => u.Id).ToList());
+            radio.Set().ConfigureAwait(false);
             
             getters = new()
             {
